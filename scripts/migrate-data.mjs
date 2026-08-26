@@ -1,9 +1,15 @@
-// One-time import of the old wallet-server JSON into Postgres.
+// One-time import of a wallet-data.json snapshot into Postgres.
 //
-//   DATABASE_URL='postgres://…' node scripts/migrate-data.mjs [path-to-json]
+//   DATABASE_URL='postgres://…' node scripts/migrate-data.mjs [path-to-json] [--force]
 //
-// Defaults to ../wallet-server/wallet-data.json. Refuses to clobber existing
-// rows unless --force is passed, so re-running it is safe.
+// `npm run db:migrate -- --force` if invoking through npm — a bare
+// `npm run db:migrate --force` (no `--`) is swallowed by npm itself and the
+// script never sees it, which looks like the flag silently did nothing.
+//
+// Defaults to this project's own .wallet-data.json (the file `npm run dev`
+// actually writes to), falling back to ../wallet-server/wallet-data.json only
+// if that one doesn't exist — the old server's snapshot predates this app and
+// running `npm run dev` even once makes it stale.
 import { neon } from "@neondatabase/serverless";
 import { readFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
@@ -14,7 +20,9 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const args = process.argv.slice(2);
 const force = args.includes("--force");
 const srcArg = args.find((a) => !a.startsWith("--"));
-const src = resolve(srcArg || join(root, "..", "wallet-server", "wallet-data.json"));
+const localStore = join(root, ".wallet-data.json");
+const legacyStore = join(root, "..", "wallet-server", "wallet-data.json");
+const src = resolve(srcArg || (existsSync(localStore) ? localStore : legacyStore));
 
 if (!process.env.DATABASE_URL) {
   console.error("✗ DATABASE_URL is not set.\n  Run:  DATABASE_URL='postgres://…' npm run db:migrate");
@@ -53,7 +61,8 @@ if (existing.length && !force) {
   const n = (existing[0].data.expenses || []).length;
   console.error(
     `\n✗ Row already exists (${n} expenses, saved ${existing[0].saved_at}).` +
-      `\n  Re-run with --force to overwrite it.`
+      `\n  Re-run with --force:  DATABASE_URL='…' node scripts/migrate-data.mjs --force` +
+      `\n  (via npm, the -- separator is required: npm run db:migrate -- --force)`
   );
   process.exit(1);
 }

@@ -5,6 +5,7 @@
 // throw a hydration mismatch. localStorage is the source of truth on first
 // paint and there's no meaningful server HTML to produce, so this renders
 // client-side only.
+import { StrictMode } from "react";
 import dynamic from "next/dynamic";
 
 const Wallet = dynamic(() => import("@/lib/Wallet"), {
@@ -14,5 +15,9 @@ const Wallet = dynamic(() => import("@/lib/Wallet"), {
 });
 
 export default function Page() {
-  return <Wallet />;
+  return (
+    <StrictMode>
+      <Wallet />
+    </StrictMode>
+  );
 }

@@ -1,6 +1,7 @@
 // Replaces wallet-server/server.mjs. Same contract the client already speaks:
 //   GET  /api/state → the saved { expenses, finance } (or {} if nothing yet)
-//   PUT  /api/state → body is JSON { expenses, finance }; persisted
+//   PUT  /api/state → body is JSON { expenses, finance, expectedSavedAt? };
+//                     persisted, or 409 with the current state on conflict
 //
 // No CORS headers needed — the app and the API are now the same origin.
 import { readState, writeState } from "@/lib/db";
@@ -20,21 +21,36 @@ export async function GET() {
 }
 
 export async function PUT(request) {
-  let state;
+  let body;
   try {
-    const body = await request.text();
-    if (body.length > MAX_BODY) {
+    const raw = await request.text();
+    if (raw.length > MAX_BODY) {
       return Response.json({ ok: false, error: "payload too large" }, { status: 413 });
     }
-    state = JSON.parse(body || "{}");
+    body = JSON.parse(raw || "{}");
   } catch (e) {
     return Response.json({ ok: false, error: e.message }, { status: 400 });
   }
 
+  const { expenses, finance, expectedSavedAt } = body;
+  // The client always sends both fields; a malformed or hand-crafted request
+  // hitting this without them used to be accepted and would blank the store.
+  if (!Array.isArray(expenses) || typeof finance !== "object" || finance === null) {
+    return Response.json(
+      { ok: false, error: "expenses must be an array and finance an object" },
+      { status: 400 }
+    );
+  }
+
   try {
-    const savedAt = await writeState(state);
-    console.log(`✓ saved state (${(state.expenses || []).length} expenses) ${savedAt}`);
-    return Response.json({ ok: true, savedAt });
+    const result = await writeState({ expenses, finance }, expectedSavedAt);
+    if (result.conflict) {
+      // Someone else's write landed between this client's last read and now.
+      // Hand back the current state instead of overwriting it.
+      return Response.json({ ok: false, conflict: true, current: result.current }, { status: 409 });
+    }
+    console.log(`✓ saved state (${expenses.length} expenses) ${result.savedAt}`);
+    return Response.json({ ok: true, savedAt: result.savedAt });
   } catch (e) {
     console.error("PUT /api/state failed:", e);
     return Response.json({ ok: false, error: "write failed" }, { status: 500 });

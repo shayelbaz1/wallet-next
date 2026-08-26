@@ -1,12 +1,17 @@
 node_modules
 .next
 out
+
+# Next also reads .env.development.local / .env.production.local (e.g. from
+# `vercel env pull`) — `.env.local` alone missed those, and .env* would have
+# meant renaming .env.local.example so it doesn't get swept up too.
 .env
-.env.local
+.env*.local
+.vercel
 
 # Local dev store — contains real financial data. Never commit.
 .wallet-data.json
-.wallet-data.json.tmp
+.wallet-data.json.*.tmp
 
 .DS_Store
 *.tsbuildinfo

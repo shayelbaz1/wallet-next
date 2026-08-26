@@ -33,8 +33,17 @@ const STORAGE_KEY = "wallet.expenses.v3";
 // which re-renders all consumers; their JSX evaluates fresh strings from T.
 // ────────────────────────────────────────────────────────────────────────────
 const LANG_KEY = "wallet.lang.v1";
+// Guarded against any stored value other than the two real language codes —
+// STRINGS isn't declared yet at this point in the module, so the check is a
+// literal list rather than `in STRINGS`. Without this, a stray/legacy value
+// left over from another page on the same origin makes every T.<key> read
+// below throw (STRINGS[CURRENT_LANG] is undefined), blanking the whole app
+// with no way to recover through the UI.
 let CURRENT_LANG = (() => {
-  try { return localStorage.getItem(LANG_KEY) || "he"; } catch { return "he"; }
+  try {
+    const v = localStorage.getItem(LANG_KEY);
+    return v === "he" || v === "en" ? v : "he";
+  } catch { return "he"; }
 })();
 
 const STRINGS = {
@@ -47,7 +56,7 @@ const STRINGS = {
     passiveRunRate: "הכנסה פסיבית משוערת", ofMonthlyGoal: "מהיעד החודשי",
     target55: "יעד 5.5M", stretch6: "מתיחה 6M",
     freedomProgress: "מהיעד הכלכלי", remaining: "נותרו",
-    netIncomeJune: "הכנסה נטו · יוני", inOf: "נכנס", outOf: "יצא",
+    netIncomeJune: "הכנסה נטו", inOf: "נכנס", outOf: "יצא",
     savingsRate: "שיעור חיסכון", savingsRateSub: "חיסכון נטו / הכנסה נטו",
     emergencyBuffer: "כרית ביטחון", months: "חודשים", liquidCash: "מזומן נזיל",
     passiveKpi: "קצב הכנסה פסיבית",
@@ -63,11 +72,14 @@ const STRINGS = {
     monthRevenue: "הכנסות החודש", gigs: "הופעות", avg: "ממוצע",
     windfallsTitle: "הכנסות חד-פעמיות", windfallsSub: "פיצויים, מענקים, החזרי מס",
     toInvestment: "← לתיק השקעות", toEmergency: "← לקרן חירום",
-    budgetTitle: "תקציב מול מציאות · יוני", budgetSub: "עמודות הליבה · סטייה צבועה",
+    budgetTitle: "תקציב מול מציאות", budgetSub: "עמודות הליבה · סטייה צבועה",
     surplus: "עודף", deficit: "גירעון",
     colCategory: "קטגוריה", colActual: "בפועל", colTarget: "יעד",
     colVariance: "סטייה", colUtil: "ניצול", total: "סה״כ", ofBudget: "מהתקציב",
-    spendingMix: "פיזור הוצאות", spendingMixSub: "לאן הלך הכסף ביוני",
+    spendingMix: "פיזור הוצאות", spendingMixSub: "לאן הלך הכסף ב",
+    thisMonth: "החודש הנוכחי", viewingMonth: "מציג נתונים עבור",
+    prevMonth: "חודש קודם", nextMonth: "חודש הבא",
+    editTargetHint: "לחץ כדי לערוך", noCategoryItems: "אין הוצאות בקטגוריה זו בחודש זה",
     engineTitle: "מנוע התיק · תחזית 15 שנה", engineSub: "מתי הכנסה פסיבית עוברת ₪20,000 בחודש?",
     freedomIn: "חופש בעוד", beyond15: "מעבר ל-15 שנה — שנה את הקלט",
     initialPortfolio: "תיק התחלתי", monthlyContribution: "הפקדה חודשית", expectedReturn: "תשואה שנתית צפויה",
@@ -104,7 +116,7 @@ const STRINGS = {
     fieldLabel: "תיאור", fieldLabelPh: "לדוגמה: הופעה בקפה לנדוור",
     fieldAllocation: "יעוד", allocInvestment: "תיק השקעות", allocEmergency: "כרית ביטחון",
     errLabel: "תיאור חובה", noGigs: "אין הופעות עדיין",
-    monthlyBalance: "מאזן חודשי", monthlyBalanceSub: "הכנסות מול הוצאות · יוני 2026",
+    monthlyBalance: "מאזן חודשי", monthlyBalanceSub: "הכנסות מול הוצאות ·",
     totalIncomeLabel: "סך הכנסות", totalExpensesLabel: "סך הוצאות", netBalance: "נטו במאזן",
     statusSurplus: "במאזן חיובי 🎉", statusDeficit: "במאזן שלילי",
     oneTime: "חד-פעמי", transactions: "תנועות",
@@ -123,7 +135,7 @@ const STRINGS = {
     passiveRunRate: "Run-rate Passive Income", ofMonthlyGoal: "of monthly goal",
     target55: "5.5M target", stretch6: "6M stretch",
     freedomProgress: "of freedom milestone", remaining: "remaining",
-    netIncomeJune: "Net Income · June", inOf: "in", outOf: "out",
+    netIncomeJune: "Net Income", inOf: "in", outOf: "out",
     savingsRate: "Savings Rate", savingsRateSub: "Net savings / net income",
     emergencyBuffer: "Emergency Buffer", months: "months", liquidCash: "liquid",
     passiveKpi: "Passive Income Run-rate",
@@ -139,11 +151,14 @@ const STRINGS = {
     monthRevenue: "June revenue", gigs: "gigs", avg: "avg",
     windfallsTitle: "One-time Windfalls", windfallsSub: "Severance, grants, refunds",
     toInvestment: "→ Investment", toEmergency: "→ Emergency Fund",
-    budgetTitle: "Budget vs. Reality · June", budgetSub: "Core pillars · color-coded variance",
+    budgetTitle: "Budget vs. Reality", budgetSub: "Core pillars · color-coded variance",
     surplus: "Surplus", deficit: "Deficit",
     colCategory: "Category", colActual: "Actual", colTarget: "Target",
     colVariance: "Variance", colUtil: "Utilization", total: "Total", ofBudget: "of budget",
-    spendingMix: "Spending Mix", spendingMixSub: "Where June's money went",
+    spendingMix: "Spending Mix", spendingMixSub: "Where the money went in",
+    thisMonth: "This month", viewingMonth: "Showing data for",
+    prevMonth: "Previous month", nextMonth: "Next month",
+    editTargetHint: "Click to edit", noCategoryItems: "No expenses in this category this month",
     engineTitle: "Portfolio Engine · 15-Year Projection", engineSub: "When does passive income cross ₪20,000 / month?",
     freedomIn: "Freedom in", beyond15: "Beyond 15 years — adjust inputs",
     initialPortfolio: "Initial Portfolio", monthlyContribution: "Monthly Contribution", expectedReturn: "Expected Annual Return",
@@ -180,7 +195,7 @@ const STRINGS = {
     fieldLabel: "Description", fieldLabelPh: "e.g. Gig at Café Landwer",
     fieldAllocation: "Allocation", allocInvestment: "Investment", allocEmergency: "Emergency Fund",
     errLabel: "Description is required", noGigs: "No gigs yet",
-    monthlyBalance: "Monthly Balance", monthlyBalanceSub: "Income vs expenses · June 2026",
+    monthlyBalance: "Monthly Balance", monthlyBalanceSub: "Income vs expenses ·",
     totalIncomeLabel: "Total income", totalExpensesLabel: "Total expenses", netBalance: "Net balance",
     statusSurplus: "In surplus 🎉", statusDeficit: "In deficit",
     oneTime: "One-time", transactions: "transactions",
@@ -193,7 +208,10 @@ const STRINGS = {
 };
 
 const T = new Proxy({}, {
-  get: (_, key) => STRINGS[CURRENT_LANG][key] ?? STRINGS.he[key],
+  // Falls back to the Hebrew pack, not just the Hebrew key, in case
+  // CURRENT_LANG is ever something other than "he"/"en" despite the guard
+  // above (setLang() writes it directly too).
+  get: (_, key) => (STRINGS[CURRENT_LANG] ?? STRINGS.he)[key] ?? STRINGS.he[key],
 });
 
 const isHe = () => CURRENT_LANG === "he";
@@ -209,6 +227,15 @@ const CATEGORIES = [
 ];
 const CAT_BY_ID = Object.fromEntries(CATEGORIES.map((c) => [c.id, c]));
 const catName = (c) => c?.names?.[CURRENT_LANG] ?? c?.names?.he ?? "";
+
+// Remember the last category the user picked so new/imported expenses default to it.
+const LAST_CATEGORY_KEY = "wallet.lastCategory.v1";
+const getLastCategory = () => {
+  try { return localStorage.getItem(LAST_CATEGORY_KEY) || "groceries"; } catch { return "groceries"; }
+};
+const rememberCategory = (id) => {
+  try { localStorage.setItem(LAST_CATEGORY_KEY, id); } catch {}
+};
 
 // Keyword → category-id (mirrors wallet-sync/categorize.mjs). First match wins.
 const CATEGORIZE_RULES = [
@@ -308,6 +335,27 @@ function useExpenses() {
   };
 
   return { expenses, addExpense, updateExpense, deleteExpense, resetToSeed, importExpenses, _setExpenses: setExpenses };
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Budget targets — per-category overrides of CATEGORIES[].target (localStorage)
+// ────────────────────────────────────────────────────────────────────────────
+const BUDGETS_KEY = "wallet.budgets.v1";
+function loadBudgets() {
+  let saved = {};
+  try {
+    const raw = localStorage.getItem(BUDGETS_KEY);
+    if (raw) saved = JSON.parse(raw) || {};
+  } catch {}
+  return Object.fromEntries(CATEGORIES.map((c) => [c.id, typeof saved[c.id] === "number" ? saved[c.id] : c.target]));
+}
+function useBudgets() {
+  const [budgets, setBudgets] = useState(loadBudgets);
+  useEffect(() => {
+    try { localStorage.setItem(BUDGETS_KEY, JSON.stringify(budgets)); } catch {}
+  }, [budgets]);
+  const setBudget = (id, value) => setBudgets((b) => ({ ...b, [id]: value }));
+  return { budgets, setBudget };
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -458,19 +506,22 @@ const BalanceBar = ({ label, value, max, tone, icon: Icon }) => {
   );
 };
 
-const MonthlyBalance = ({ salaryNet, sideTotal, windfallsTotal, expenses, expenseCount }) => {
+const MonthlyBalance = ({ salaryNet, sideTotal, windfallsTotal, expenses, month }) => {
+  const monthExpenses = useMemo(() => expenses.filter((e) => monthKey(e.date) === month), [expenses, month]);
+  const expensesTotal = useMemo(() => monthExpenses.reduce((s, e) => s + e.amount, 0), [monthExpenses]);
+  const expenseCount = monthExpenses.length;
   const recurringIn = salaryNet + sideTotal;
   const totalIn = recurringIn + windfallsTotal;
-  const net = totalIn - expenses;
-  const recurringNet = recurringIn - expenses;
+  const net = totalIn - expensesTotal;
+  const recurringNet = recurringIn - expensesTotal;
   const savingsRate = totalIn ? net / totalIn : 0;
-  const max = Math.max(totalIn, expenses, 1);
+  const max = Math.max(totalIn, expensesTotal, 1);
   const surplus = net >= 0;
 
   return (
     <Card className="p-6 relative overflow-hidden">
       <div className={`pointer-events-none absolute -top-28 -left-20 w-[420px] h-[420px] rounded-full blur-3xl bg-gradient-to-br ${surplus ? "from-emerald-500/15" : "from-rose-500/15"} to-transparent`} />
-      <SectionTitle icon={Scale} title={T.monthlyBalance} subtitle={T.monthlyBalanceSub}
+      <SectionTitle icon={Scale} title={T.monthlyBalance} subtitle={`${T.monthlyBalanceSub} ${monthLabel(month)}`}
         right={<Pill tone={surplus ? "pos" : "neg"}>{surplus ? T.statusSurplus : T.statusDeficit}</Pill>} />
 
       <div className="relative grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -480,7 +531,7 @@ const MonthlyBalance = ({ salaryNet, sideTotal, windfallsTotal, expenses, expens
         </div>
         <div className="rounded-xl border border-rose-500/25 bg-rose-500/[0.05] p-4">
           <div className="text-[11px] tracking-wide text-rose-300/80 inline-flex items-center gap-1.5"><ArrowUpRight className="w-3.5 h-3.5" />{T.totalExpensesLabel}</div>
-          <div className="mt-1 text-3xl font-semibold text-rose-200"><Money>{fmt(expenses)}</Money></div>
+          <div className="mt-1 text-3xl font-semibold text-rose-200"><Money>{fmt(expensesTotal)}</Money></div>
           <div className="text-[11px] text-slate-500 mt-1">{expenseCount} {T.transactions}</div>
         </div>
         <div className={`rounded-xl border p-4 ${surplus ? "border-teal-500/30 bg-teal-500/[0.07]" : "border-rose-500/30 bg-rose-500/[0.07]"}`}>
@@ -493,8 +544,8 @@ const MonthlyBalance = ({ salaryNet, sideTotal, windfallsTotal, expenses, expens
       </div>
 
       <div className="relative mt-5 space-y-3">
-        <BalanceBar label={T.totalIncomeLabel}   value={totalIn}  max={max} tone="in"  icon={ArrowDownLeft} />
-        <BalanceBar label={T.totalExpensesLabel} value={expenses} max={max} tone="out" icon={ArrowUpRight} />
+        <BalanceBar label={T.totalIncomeLabel}   value={totalIn}       max={max} tone="in"  icon={ArrowDownLeft} />
+        <BalanceBar label={T.totalExpensesLabel} value={expensesTotal} max={max} tone="out" icon={ArrowUpRight} />
       </div>
 
       <div className="relative mt-5 flex flex-wrap items-center gap-2 text-[11px]">
@@ -705,7 +756,7 @@ const SideHustleCard = ({ gigs, onAdd, onUpdate, onDelete }) => {
               <div className="flex items-center gap-2">
                 <Money className="text-emerald-300 font-medium">+{fmt(g.amount)}</Money>
                 <div className="flex items-center gap-0.5 opacity-60 group-hover:opacity-100 transition">
-                  <button onClick={() => setEditor({ ...g, label: labelFor(g) })} className="p-1 rounded hover:bg-slate-800 text-slate-400 hover:text-teal-300" title={T.edit}><Pencil className="w-3.5 h-3.5" /></button>
+                  <button onClick={() => setEditor(g)} className="p-1 rounded hover:bg-slate-800 text-slate-400 hover:text-teal-300" title={T.edit}><Pencil className="w-3.5 h-3.5" /></button>
                   <button onClick={() => onDelete(g.id)} className="p-1 rounded hover:bg-slate-800 text-slate-400 hover:text-rose-300" title={T.delete}><Trash2 className="w-3.5 h-3.5" /></button>
                 </div>
               </div>
@@ -750,7 +801,7 @@ const WindfallsCard = ({ items, onAdd, onUpdate, onDelete, onToggle }) => {
               {w.allocation === "investment" ? T.toInvestment : T.toEmergency}
             </button>
             <div className="flex items-center gap-0.5 opacity-60 group-hover:opacity-100 transition">
-              <button onClick={() => setEditor({ ...w, label: labelFor(w) })} className="p-1 rounded hover:bg-slate-800 text-slate-400 hover:text-teal-300" title={T.edit}><Pencil className="w-3.5 h-3.5" /></button>
+              <button onClick={() => setEditor(w)} className="p-1 rounded hover:bg-slate-800 text-slate-400 hover:text-teal-300" title={T.edit}><Pencil className="w-3.5 h-3.5" /></button>
               <button onClick={() => onDelete(w.id)} className="p-1 rounded hover:bg-slate-800 text-slate-400 hover:text-rose-300" title={T.delete}><Trash2 className="w-3.5 h-3.5" /></button>
             </div>
           </div>
@@ -818,14 +869,21 @@ const SalaryEditor = ({ initial, onClose, onSave }) => {
 };
 
 const GigEditor = ({ initial, onClose, onSave, onDelete }) => {
-  const [f, setF] = useState({ label: initial.label || "", amount: initial.amount === "" ? "" : String(initial.amount ?? ""), date: initial.date || todayDDMM() });
+  const [f, setF] = useState({ label: labelFor(initial), amount: initial.amount === "" ? "" : String(initial.amount ?? ""), date: initial.date || todayDDMM() });
   const [err, setErr] = useState(null);
   const submit = (e) => {
     e.preventDefault();
     const amount = parseFloat(f.amount);
     if (!f.label.trim()) return setErr(T.errLabel);
     if (!amount || amount <= 0) return setErr(T.errAmount);
-    onSave({ ...initial, label: f.label.trim(), amount, date: f.date });
+    // Seeded gigs carry a bilingual { he, en } label. If we blindly wrote back
+    // the plain string the user just edited, the other language's text would
+    // be gone for good the moment someone saved with no changes. Only the
+    // language currently open gets overwritten; the rest of the object stays.
+    const label = initial.label && typeof initial.label === "object"
+      ? { ...initial.label, [CURRENT_LANG]: f.label.trim() }
+      : f.label.trim();
+    onSave({ ...initial, label, amount, date: f.date });
   };
   return (
     <Modal icon={Music2} title={initial.id ? T.editGig : T.addGig} onClose={onClose}>
@@ -843,14 +901,18 @@ const GigEditor = ({ initial, onClose, onSave, onDelete }) => {
 };
 
 const WindfallEditor = ({ initial, onClose, onSave, onDelete }) => {
-  const [f, setF] = useState({ label: initial.label || "", amount: initial.amount === "" ? "" : String(initial.amount ?? ""), date: initial.date || todayDDMM(), allocation: initial.allocation || "investment" });
+  const [f, setF] = useState({ label: labelFor(initial), amount: initial.amount === "" ? "" : String(initial.amount ?? ""), date: initial.date || todayDDMM(), allocation: initial.allocation || "investment" });
   const [err, setErr] = useState(null);
   const submit = (e) => {
     e.preventDefault();
     const amount = parseFloat(f.amount);
     if (!f.label.trim()) return setErr(T.errLabel);
     if (!amount || amount <= 0) return setErr(T.errAmount);
-    onSave({ ...initial, label: f.label.trim(), amount, date: f.date, allocation: f.allocation });
+    // Same bilingual-label merge as GigEditor — see comment there.
+    const label = initial.label && typeof initial.label === "object"
+      ? { ...initial.label, [CURRENT_LANG]: f.label.trim() }
+      : f.label.trim();
+    onSave({ ...initial, label, amount, date: f.date, allocation: f.allocation });
   };
   return (
     <Modal icon={Gift} title={initial.id ? T.editWindfall : T.addWindfall} onClose={onClose}>
@@ -891,16 +953,88 @@ const BankEditor = ({ initial, onClose, onSave }) => {
 };
 
 // ────────────────────────────────────────────────────────────────────────────
-// Budget table — derived from expenses
+// Month navigator — prev/next month arrows + a jump-to-current-month shortcut.
 // ────────────────────────────────────────────────────────────────────────────
-const buildBudgetRows = (expenses) =>
+const MonthNav = ({ month, onChange }) => {
+  const shift = (delta) => {
+    const [y, m] = month.split("-").map(Number);
+    const d = new Date(y, (m - 1) + delta, 1);
+    onChange(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
+  };
+  const isCurrent = month === currentMonthKey();
+  return (
+    <div className="flex items-center gap-1.5">
+      <button type="button" onClick={() => shift(-1)} title={T.prevMonth}
+        className="p-1.5 rounded-lg border border-slate-800 hover:border-teal-500/40 text-slate-400 hover:text-teal-300 transition">
+        <ChevronLeft className={isHe() ? "w-3.5 h-3.5" : "w-3.5 h-3.5 rotate-180"} />
+      </button>
+      <span className="min-w-[130px] text-center text-sm text-slate-200 font-medium px-1"><Money>{monthLabel(month)}</Money></span>
+      <button type="button" onClick={() => shift(1)} title={T.nextMonth}
+        className="p-1.5 rounded-lg border border-slate-800 hover:border-teal-500/40 text-slate-400 hover:text-teal-300 transition">
+        <ChevronLeft className={isHe() ? "w-3.5 h-3.5 rotate-180" : "w-3.5 h-3.5"} />
+      </button>
+      {!isCurrent && (
+        <button type="button" onClick={() => onChange(currentMonthKey())}
+          className="text-[11px] text-teal-300/80 hover:text-teal-200 px-2 py-1 rounded-md border border-teal-500/30 hover:border-teal-500/50 transition">
+          {T.thisMonth}
+        </button>
+      )}
+    </div>
+  );
+};
+
+// ────────────────────────────────────────────────────────────────────────────
+// Budget table — derived from a single month's expenses
+// ────────────────────────────────────────────────────────────────────────────
+const buildBudgetRows = (expenses, budgets) =>
   CATEGORIES.map((c) => ({
     ...c,
+    target: budgets?.[c.id] ?? c.target,
     actual: expenses.filter((e) => e.category === c.id).reduce((s, e) => s + e.amount, 0),
   }));
 
-const BudgetTable = ({ expenses, className = "" }) => {
-  const rows = useMemo(() => buildBudgetRows(expenses), [expenses]);
+// Click-to-edit budget target amount.
+const EditableTarget = ({ value, onSave }) => {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(String(value));
+  const inputRef = useRef(null);
+
+  useEffect(() => { if (editing) { inputRef.current?.focus(); inputRef.current?.select(); } }, [editing]);
+
+  const commit = () => {
+    setEditing(false);
+    const n = parseFloat(draft);
+    if (!isNaN(n) && n >= 0 && n !== value) onSave(n);
+    else setDraft(String(value));
+  };
+
+  if (editing) {
+    return (
+      <input ref={inputRef} type="number" min="0" step="1" dir="ltr" value={draft}
+        onClick={(e) => e.stopPropagation()}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") commit();
+          if (e.key === "Escape") { setDraft(String(value)); setEditing(false); }
+        }}
+        className="w-24 bg-slate-950/60 border border-teal-500/40 rounded-md px-2 py-1 text-end text-sm text-slate-100 focus:outline-none" />
+    );
+  }
+  return (
+    <button type="button" title={T.editTargetHint}
+      onClick={(e) => { e.stopPropagation(); setDraft(String(value)); setEditing(true); }}
+      className="inline-flex items-center gap-1 text-slate-400 hover:text-teal-300 transition group">
+      <Money>{fmt(value)}</Money>
+      <Pencil className="w-3 h-3 opacity-0 group-hover:opacity-70" />
+    </button>
+  );
+};
+
+const BudgetTable = ({ expenses, month, budgets, onEditTarget, className = "" }) => {
+  const [expanded, setExpanded] = useState(null);
+  const monthExpenses = useMemo(() => expenses.filter((e) => monthKey(e.date) === month), [expenses, month]);
+  const rows = useMemo(() => buildBudgetRows(monthExpenses, budgets), [monthExpenses, budgets]);
   const totals = useMemo(() => {
     const target = rows.reduce((s, r) => s + r.target, 0);
     const actual = rows.reduce((s, r) => s + r.actual, 0);
@@ -909,7 +1043,7 @@ const BudgetTable = ({ expenses, className = "" }) => {
 
   return (
     <Card className={`p-5 lg:col-span-2 ${className}`}>
-      <SectionTitle icon={Target} title={T.budgetTitle} subtitle={T.budgetSub}
+      <SectionTitle icon={Target} title={`${T.budgetTitle} · ${monthLabel(month)}`} subtitle={T.budgetSub}
         right={<Pill tone={totals.variance >= 0 ? "pos" : "neg"}>
           {totals.variance >= 0 ? T.surplus : T.deficit} <Money>{fmt(Math.abs(totals.variance))}</Money>
         </Pill>} />
@@ -930,34 +1064,61 @@ const BudgetTable = ({ expenses, className = "" }) => {
               const over = variance < 0;
               const util = r.target ? Math.min(r.actual / r.target, 1.5) : 0;
               const Icon = r.icon;
+              const isOpen = expanded === r.id;
+              const catItems = monthExpenses
+                .filter((e) => e.category === r.id)
+                .sort((a, b) => (a.date < b.date ? 1 : -1));
               return (
-                <tr key={r.id} className="hover:bg-slate-900/40 transition">
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center border ${over ? "bg-rose-500/10 border-rose-500/20" : "bg-emerald-500/10 border-emerald-500/20"}`}>
-                        <Icon className={`w-4 h-4 ${over ? "text-rose-300" : "text-emerald-300"}`} />
+                <React.Fragment key={r.id}>
+                  <tr className="hover:bg-slate-900/40 transition cursor-pointer" onClick={() => setExpanded(isOpen ? null : r.id)}>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center border ${over ? "bg-rose-500/10 border-rose-500/20" : "bg-emerald-500/10 border-emerald-500/20"}`}>
+                          <Icon className={`w-4 h-4 ${over ? "text-rose-300" : "text-emerald-300"}`} />
+                        </div>
+                        <span className="text-slate-200">{catName(r)}</span>
+                        <ChevronLeft className={`w-3.5 h-3.5 text-slate-600 transition-transform ${isOpen ? "-rotate-90" : "rotate-90"}`} />
                       </div>
-                      <span className="text-slate-200">{catName(r)}</span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-end"><Money className="text-slate-100">{fmt(r.actual)}</Money></td>
-                  <td className="px-4 py-3 text-end"><Money className="text-slate-400">{fmt(r.target)}</Money></td>
-                  <td className={`px-4 py-3 text-end font-medium ${over ? "text-rose-300" : "text-emerald-300"}`}>
-                    <Money>{over ? "−" : "+"}{fmt(Math.abs(variance))}</Money>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div dir="ltr" className="h-1.5 rounded-full bg-slate-800 overflow-hidden">
-                      <div className={`h-full rounded-full ${
-                        util > 1 ? "bg-gradient-to-r from-rose-400 to-amber-400" :
-                        util > 0.85 ? "bg-gradient-to-r from-amber-400 to-emerald-400" :
-                        "bg-gradient-to-r from-emerald-400 to-teal-400"
-                      }`} style={{ width: `${Math.min(util, 1) * 100}%` }} />
-                    </div>
-                    <div className="mt-1 text-[11px] text-slate-500">
-                      <Money>{pct(r.target ? r.actual / r.target : 0, 0)}</Money> {T.ofBudget}
-                    </div>
-                  </td>
-                </tr>
+                    </td>
+                    <td className="px-4 py-3 text-end"><Money className="text-slate-100">{fmt(r.actual)}</Money></td>
+                    <td className="px-4 py-3 text-end"><EditableTarget value={r.target} onSave={(v) => onEditTarget(r.id, v)} /></td>
+                    <td className={`px-4 py-3 text-end font-medium ${over ? "text-rose-300" : "text-emerald-300"}`}>
+                      <Money>{over ? "−" : "+"}{fmt(Math.abs(variance))}</Money>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div dir="ltr" className="h-1.5 rounded-full bg-slate-800 overflow-hidden">
+                        <div className={`h-full rounded-full ${
+                          util > 1 ? "bg-gradient-to-r from-rose-400 to-amber-400" :
+                          util > 0.85 ? "bg-gradient-to-r from-amber-400 to-emerald-400" :
+                          "bg-gradient-to-r from-emerald-400 to-teal-400"
+                        }`} style={{ width: `${Math.min(util, 1) * 100}%` }} />
+                      </div>
+                      <div className="mt-1 text-[11px] text-slate-500">
+                        <Money>{pct(r.target ? r.actual / r.target : 0, 0)}</Money> {T.ofBudget}
+                      </div>
+                    </td>
+                  </tr>
+                  {isOpen && (
+                    <tr className="bg-slate-950/40">
+                      <td colSpan={5} className="px-4 pb-3 pt-0">
+                        <div className="ms-11 ps-3 border-s border-slate-800 space-y-1">
+                          {catItems.length === 0 ? (
+                            <div className="text-[11px] text-slate-500 py-2">{T.noCategoryItems}</div>
+                          ) : catItems.map((e) => (
+                            <div key={e.id} className="flex items-center justify-between gap-3 text-[12px] py-1.5 border-b border-slate-900/80 last:border-0">
+                              <div className="flex items-center gap-2 min-w-0 text-slate-300">
+                                <span className="text-slate-500 text-[11px] whitespace-nowrap"><Money>{fmtDate(e.date)}</Money></span>
+                                <span className="truncate">{e.merchant}</span>
+                                {e.note && <span className="text-slate-600 truncate">· {e.note}</span>}
+                              </div>
+                              <Money className="text-slate-200 font-medium shrink-0">{fmt(e.amount)}</Money>
+                            </div>
+                          ))}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
               );
             })}
           </tbody>
@@ -978,17 +1139,18 @@ const BudgetTable = ({ expenses, className = "" }) => {
   );
 };
 
-const ExpensePie = ({ expenses }) => {
+const ExpensePie = ({ expenses, month }) => {
+  const monthExpenses = useMemo(() => expenses.filter((e) => monthKey(e.date) === month), [expenses, month]);
   const data = useMemo(() =>
     CATEGORIES.map((c) => ({
       name: catName(c),
-      value: expenses.filter((e) => e.category === c.id).reduce((s, e) => s + e.amount, 0),
+      value: monthExpenses.filter((e) => e.category === c.id).reduce((s, e) => s + e.amount, 0),
       color: c.color,
     })).filter((d) => d.value > 0)
-  , [expenses, CURRENT_LANG]);
+  , [monthExpenses, CURRENT_LANG]);
   return (
     <Card className="p-5">
-      <SectionTitle icon={CircleDollarSign} title={T.spendingMix} subtitle={T.spendingMixSub} />
+      <SectionTitle icon={CircleDollarSign} title={T.spendingMix} subtitle={`${T.spendingMixSub} ${monthLabel(month)}`} />
       <div className="h-[260px]">
         <ResponsiveContainer>
           <PieChart>
@@ -1166,6 +1328,45 @@ const CatChip = ({ active, color, children, onClick }) => (
   </button>
 );
 
+// Clickable category tag — click to open an instant category picker, no need to open the full editor.
+const CategoryTag = ({ value, onChange }) => {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [open]);
+  const cat = CAT_BY_ID[value];
+  const Icon = cat?.icon || Receipt;
+  return (
+    <div ref={ref} className="relative inline-block">
+      <button type="button" onClick={() => setOpen((o) => !o)}
+        className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] border hover:brightness-125 transition cursor-pointer"
+        style={{ background: `${cat?.color}1a`, borderColor: `${cat?.color}40`, color: cat?.color }}>
+        <Icon className="w-3 h-3" /> {catName(cat) || value}
+      </button>
+      {open && (
+        <div className="absolute z-20 top-full mt-1 start-0 flex flex-wrap gap-1 p-2 rounded-xl border border-slate-800 bg-slate-900 shadow-xl w-56">
+          {CATEGORIES.map((c) => {
+            const CIcon = c.icon;
+            return (
+              <button key={c.id} type="button"
+                onClick={() => { onChange(c.id); setOpen(false); }}
+                className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[11px] border hover:brightness-125 transition"
+                style={{ background: `${c.color}1a`, borderColor: `${c.color}40`, color: c.color }}>
+                <CIcon className="w-3 h-3" /> {catName(c)}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
+
+
 const ExpensesView = ({ expenses, onAdd, onUpdate, onDelete, onReset, onImport }) => {
   const [editor, setEditor] = useState(null);
   const [filterCat, setFilterCat] = useState("all");
@@ -1238,7 +1439,15 @@ const ExpensesView = ({ expenses, onAdd, onUpdate, onDelete, onReset, onImport }
     rows = [...rows].sort((a, b) => {
       const dir = sort.dir === "asc" ? 1 : -1;
       if (sort.key === "amount") return (a.amount - b.amount) * dir;
-      if (sort.key === "category") return a.category.localeCompare(b.category) * dir;
+      if (sort.key === "category") {
+        // Sort by the label the user actually sees, not the internal English
+        // id — otherwise the header's sort arrow implies an order ("א׳-ת׳")
+        // that doesn't match what's on screen, and clicking it in Hebrew vs.
+        // English produces the identical row order despite different text.
+        const an = catName(CAT_BY_ID[a.category]) || a.category;
+        const bn = catName(CAT_BY_ID[b.category]) || b.category;
+        return an.localeCompare(bn, locale()) * dir;
+      }
       return (a.date < b.date ? -1 : 1) * dir;
     });
     return rows;
@@ -1259,7 +1468,7 @@ const ExpensesView = ({ expenses, onAdd, onUpdate, onDelete, onReset, onImport }
     URL.revokeObjectURL(url);
   };
 
-  const blank = () => ({ date: new Date().toISOString().slice(0, 10), merchant: "", amount: "", category: "groceries", note: "" });
+  const blank = () => ({ date: new Date().toISOString().slice(0, 10), merchant: "", amount: "", category: getLastCategory(), note: "" });
 
   return (
     <div className="space-y-4">
@@ -1363,8 +1572,6 @@ const ExpensesView = ({ expenses, onAdd, onUpdate, onDelete, onReset, onImport }
                 </tr>
               )}
               {filtered.map((e) => {
-                const cat = CAT_BY_ID[e.category];
-                const Icon = cat?.icon || Receipt;
                 return (
                   <tr key={e.id} className="hover:bg-slate-900/40 transition group">
                     <td className="px-4 py-3 text-slate-400 text-xs whitespace-nowrap"><Money>{fmtDate(e.date)}</Money></td>
@@ -1372,10 +1579,7 @@ const ExpensesView = ({ expenses, onAdd, onUpdate, onDelete, onReset, onImport }
                       <div className="text-slate-200">{e.merchant}</div>
                     </td>
                     <td className="px-4 py-3">
-                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] border"
-                        style={{ background: `${cat?.color}1a`, borderColor: `${cat?.color}40`, color: cat?.color }}>
-                        <Icon className="w-3 h-3" /> {catName(cat) || e.category}
-                      </span>
+                      <CategoryTag value={e.category} onChange={(cat) => { onUpdate(e.id, { category: cat }); rememberCategory(cat); }} />
                     </td>
                     <td className="px-4 py-3 text-end"><Money className="text-slate-100 font-medium">{fmtMoney(e.amount)}</Money></td>
                     <td className="px-4 py-3 max-w-[220px] align-middle">
@@ -1483,7 +1687,7 @@ const ExpenseEditor = ({ initial, onCancel, onSave, onDelete }) => {
           </Field>
           <div className="grid grid-cols-2 gap-3">
             <Field label={T.fieldCategory}>
-              <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}
+              <select value={form.category} onChange={(e) => { setForm({ ...form, category: e.target.value }); rememberCategory(e.target.value); }}
                 className="w-full bg-slate-950/60 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-200 focus:border-teal-500/50 focus:outline-none">
                 {CATEGORIES.map((c) => <option key={c.id} value={c.id}>{catName(c)}</option>)}
               </select>
@@ -1591,23 +1795,51 @@ const TAB_DEFS = [
   { id: "budget",    labelKey: "tabBudgets",   icon: Target },
   { id: "engine",    labelKey: "tabEngine",    icon: LineChartIcon },
 ];
+const TAB_IDS = new Set(TAB_DEFS.map((t) => t.id));
+const TAB_KEY = "wallet.tab.v1";
+const loadTab = () => {
+  try {
+    const saved = localStorage.getItem(TAB_KEY);
+    return TAB_IDS.has(saved) ? saved : "dashboard";
+  } catch { return "dashboard"; }
+};
+// The current calendar month, e.g. "2026-08" — used as the default month-selector value.
+const currentMonthKey = () => monthKey(new Date().toISOString());
 
 export default function Wallet() {
-  const [tab, setTab] = useState("dashboard");
+  const [tab, setTabState] = useState(loadTab);
+  const setTab = (next) => {
+    setTabState(next);
+    try { localStorage.setItem(TAB_KEY, next); } catch {}
+  };
+  const [selectedMonth, setSelectedMonth] = useState(currentMonthKey);
   const [lang, setLangState] = useState(CURRENT_LANG);
   const { expenses, addExpense, updateExpense, deleteExpense, resetToSeed, importExpenses, _setExpenses } = useExpenses();
+  const { budgets, setBudget } = useBudgets();
   const { finance, setSalary, setBank, addGig, updateGig, deleteGig,
           addWindfall, updateWindfall, deleteWindfall, toggleWindfall, _setFinance } = useFinance();
 
-  // Optional local server sync (wallet-server). Falls back to localStorage when off.
+  // Optional server sync (app/api/state). Falls back to localStorage when off.
+  // `hydrated` gates the save effect below so the very first render (built
+  // from localStorage, before we've heard from the server at all) can't PUT
+  // over real server data. loadFromServer() now retries with rising timeouts
+  // before giving up (see serverSync.js) — a plain 1.5s timeout used to treat
+  // "server is up but this request was slow" identically to "no server",
+  // arm the save effect either way, and let the very next edit overwrite the
+  // whole remote store with whatever localStorage happened to hold.
   const [serverStatus, setServerStatus] = useState("offline"); // offline | connected
   const hydrated = useRef(false);
+  // The savedAt this client last confirmed matches the server. Sent back with
+  // every save so a write that would clobber a change made by another tab or
+  // device gets rejected (409) instead of silently overwriting it.
+  const lastSavedAt = useRef(undefined);
   useEffect(() => {
     (async () => {
       const res = await loadFromServer();
       if (res?.connected) {
         if (res.state?.expenses) _setExpenses(res.state.expenses);
         if (res.state?.finance) _setFinance(res.state.finance);
+        lastSavedAt.current = res.state?.savedAt;
         setServerStatus("connected");
       }
       hydrated.current = true;
@@ -1616,8 +1848,21 @@ export default function Wallet() {
   useEffect(() => {
     if (!hydrated.current) return;
     const t = setTimeout(async () => {
-      const ok = await saveToServer({ expenses, finance });
-      setServerStatus(ok ? "connected" : "offline");
+      const result = await saveToServer({ expenses, finance }, lastSavedAt.current);
+      if (result.ok) {
+        lastSavedAt.current = result.savedAt;
+        setServerStatus("connected");
+      } else if (result.conflict) {
+        // Another tab/device saved first. Accept their version rather than
+        // discarding it — this edit is dropped, but the next change the user
+        // makes will save cleanly on top of the now-current base.
+        if (result.current?.expenses) _setExpenses(result.current.expenses);
+        if (result.current?.finance) _setFinance(result.current.finance);
+        lastSavedAt.current = result.current?.savedAt;
+        setServerStatus("connected");
+      } else {
+        setServerStatus("offline");
+      }
     }, 600);
     return () => clearTimeout(t);
   }, [expenses, finance]);
@@ -1723,8 +1968,8 @@ export default function Wallet() {
               salaryNet={finance.salary.netInBank}
               sideTotal={sideHustleTotal}
               windfallsTotal={finance.windfalls.reduce((s, w) => s + w.amount, 0)}
-              expenses={totalExpenses}
-              expenseCount={expenses.length}
+              expenses={expenses}
+              month={selectedMonth}
             />
             <FreedomHero portfolio={initial} monthlyContribution={contribution} />
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -1737,9 +1982,13 @@ export default function Wallet() {
               <Kpi icon={Sparkles} label={T.passiveKpi} value={fmt(monthlyPassive)}
                 sub={<><Money>{pct(monthlyPassive / PASSIVE_INCOME_TARGET)}</Money> {T.ofMonthlyGoal}</>} tone="info" trend={+1.8} />
             </div>
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div className="text-sm text-slate-400">{T.viewingMonth}</div>
+              <MonthNav month={selectedMonth} onChange={setSelectedMonth} />
+            </div>
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              <BudgetTable expenses={expenses} />
-              <ExpensePie expenses={expenses} />
+              <BudgetTable expenses={expenses} month={selectedMonth} budgets={budgets} onEditTarget={setBudget} />
+              <ExpensePie expenses={expenses} month={selectedMonth} />
             </div>
           </div>
         )}
@@ -1770,9 +2019,15 @@ export default function Wallet() {
         )}
 
         {tab === "budget" && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <BudgetTable expenses={expenses} />
-            <ExpensePie expenses={expenses} />
+          <div className="space-y-4">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div className="text-sm text-slate-400">{T.viewingMonth}</div>
+              <MonthNav month={selectedMonth} onChange={setSelectedMonth} />
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              <BudgetTable expenses={expenses} month={selectedMonth} budgets={budgets} onEditTarget={setBudget} />
+              <ExpensePie expenses={expenses} month={selectedMonth} />
+            </div>
           </div>
         )}
 

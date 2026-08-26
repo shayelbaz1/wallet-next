@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint .",
     "db:migrate": "node scripts/migrate-data.mjs",
     "postinstall": "node scripts/sync-pdf-worker.mjs"
   },
@@ -20,7 +20,11 @@
     "recharts": "^3.8.1"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "autoprefixer": "^10.4.20",
+    "eslint": "^10.3.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.6.0",
     "postcss": "^8.5.15",
     "tailwindcss": "^3.4.19"
   },
