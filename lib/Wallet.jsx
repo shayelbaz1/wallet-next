@@ -6,15 +6,15 @@
 
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import {
-  LineChart, Line, AreaChart, Area, PieChart, Pie, Cell,
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine,
+  LineChart, Line, PieChart, Pie, Cell,
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
 import {
   Wallet as WalletIcon, TrendingUp, Target, Briefcase, Music2, Gift, PiggyBank,
   Plane, Laptop, Car, ShoppingCart, HeartPulse, Receipt, ArrowUpRight, ArrowDownRight,
-  Sparkles, LayoutDashboard, LineChart as LineChartIcon, CircleDollarSign, Calendar,
-  Flame, Shield, Plus, ChevronLeft, Pencil, Trash2, X, Search, Download, RotateCcw, Languages,
-  Landmark, CreditCard, Scale, ArrowDownLeft, Upload, Loader2,
+  Sparkles, LayoutDashboard, CircleDollarSign, Calendar,
+  Shield, Plus, ChevronLeft, ChevronRight, Pencil, Trash2, X, Search, Download, RotateCcw, Languages,
+  Landmark, CreditCard, Scale, ArrowDownLeft, Upload, Loader2, Repeat2,
 } from "lucide-react";
 import { loadFromServer, saveToServer } from "./serverSync";
 
@@ -86,7 +86,7 @@ const STRINGS = {
     yearsToFreedom: "שנים לחופש", portfolioAtGoal: "תיק ביעד",
     portfolio: "תיק", passivePerMo: "פסיבית / חודש",
     goal20k: "יעד ₪20K", freedomLabel: "חופש", yearWord: "שנה", yearsWord: "שנים", monthsWord: "חודשים",
-    cashflowSummary: "סיכום תזרים · יוני", cashflowSummarySub: "נכנס מול יוצא במבט מהיר",
+    cashflowSummary: "סיכום תזרים", cashflowSummarySub: "נכנס מול יוצא במבט מהיר",
     salaryNet: "משכורת נטו", sideTotal: "הכנסות צד", expenses: "הוצאות", netToInvest: "נטו להשקעה",
     savingsRateShort: "שיעור חיסכון", income: "הכנסה",
     expensesTitle: "הוצאות החודש", expensesSub: "כל החיובים — נטענו מדף הפירוט של ישראכרט",
@@ -104,6 +104,7 @@ const STRINGS = {
     editorAddTitle: "הוסף הוצאה", editorEditTitle: "ערוך הוצאה",
     fieldDate: "תאריך", fieldMerchant: "שם בית עסק", fieldMerchantPh: "לדוגמה: שופרסל הוד השרון",
     fieldCategory: "קטגוריה", fieldAmount: "סכום (₪)", fieldNote: "הערה", fieldNotePh: "הערה חופשית",
+    recurringExpense: "הוצאה חודשית מתחדשת", recurring: "חודשי מתחדש", expectedRecurring: "חודשי צפוי", annualProjection: "תחזית שנתית",
     errMerchant: "שם בית עסק חובה", errAmount: "סכום חייב להיות גדול מ-0", errDate: "תאריך חובה",
     cancel: "ביטול", save: "שמור", delete: "מחק", confirmDelete: "מחק?",
     yes: "כן", no: "לא", edit: "ערוך",
@@ -165,7 +166,7 @@ const STRINGS = {
     yearsToFreedom: "Years to freedom", portfolioAtGoal: "Portfolio at goal",
     portfolio: "Portfolio", passivePerMo: "Passive / mo",
     goal20k: "₪20K goal", freedomLabel: "Freedom", yearWord: "year", yearsWord: "years", monthsWord: "months",
-    cashflowSummary: "June Cash Flow Summary", cashflowSummarySub: "In vs. out, at a glance",
+    cashflowSummary: "Cash Flow Summary", cashflowSummarySub: "In vs. out, at a glance",
     salaryNet: "Salary (net)", sideTotal: "Side hustle", expenses: "Expenses", netToInvest: "Net to invest",
     savingsRateShort: "savings rate", income: "Income",
     expensesTitle: "This Month's Expenses", expensesSub: "All charges — loaded from your Isracard statement",
@@ -183,6 +184,7 @@ const STRINGS = {
     editorAddTitle: "Add expense", editorEditTitle: "Edit expense",
     fieldDate: "Date", fieldMerchant: "Merchant", fieldMerchantPh: "e.g. Shufersal Hod HaSharon",
     fieldCategory: "Category", fieldAmount: "Amount (₪)", fieldNote: "Note", fieldNotePh: "Optional note",
+    recurringExpense: "Recurring monthly expense", recurring: "Recurring", expectedRecurring: "Expected recurring", annualProjection: "Annual projection",
     errMerchant: "Merchant is required", errAmount: "Amount must be greater than 0", errDate: "Date is required",
     cancel: "Cancel", save: "Save", delete: "Delete", confirmDelete: "Delete?",
     yes: "Yes", no: "No", edit: "Edit",
@@ -225,6 +227,10 @@ const CATEGORIES = [
   { id: "health",    names: { he: "בריאות ופארם",      en: "Health & Pharmacy" },     icon: HeartPulse,   color: "#fb7185", target: 250 },
   { id: "financial", names: { he: "פיננסי ואחר",       en: "Financial & Other" },     icon: Receipt,      color: "#fbbf24", target: 400 },
 ];
+const BUDGET_CATEGORIES = [
+  { id: "monthly", names: { he: "הוצאות חודשיות", en: "Monthly Expenses" }, icon: Repeat2, color: "#60a5fa", target: 3000, isRollup: true },
+  ...CATEGORIES,
+];
 const CAT_BY_ID = Object.fromEntries(CATEGORIES.map((c) => [c.id, c]));
 const catName = (c) => c?.names?.[CURRENT_LANG] ?? c?.names?.he ?? "";
 
@@ -237,20 +243,6 @@ const rememberCategory = (id) => {
   try { localStorage.setItem(LAST_CATEGORY_KEY, id); } catch {}
 };
 
-// Keyword → category-id (mirrors wallet-sync/categorize.mjs). First match wins.
-const CATEGORIZE_RULES = [
-  { cat: "groceries", re: /שופרסל|טיב טעם|רמי לוי|ויקטורי|יוחננוף|מגה|אושר עד|tiv ?taam|shufersal|סופרמרקט|מכולת|am ?:?pm/i },
-  { cat: "car",       re: /דלק|פז|סונול|דור אלון|ten|yellow|פנגו|pango|cellopark|חניון|חניה|ביטוח חובה|רכב חובה|הפניקס רכב|הפול|טסט|מוסך/i },
-  { cat: "health",    re: /סופר.{0,4}פארם|super.?pharm|ניו.{0,2}פארם|לאומית|כללית|מכבי|מאוחדת|בית מרקחת|pharm|רופא|מרפאה|tif/i },
-  { cat: "travel",    re: /airbnb|booking|expedia|ארקיע|אל על|el ?al|ryanair|wizz|טיסה|פסטיבל|festival|hotel|מלון|hostel|נופש|חופשה/i },
-  { cat: "workspace", re: /kygini|aws|amazon web|google|adobe|microsoft|github|openai|anthropic|notion|figma|jetbrains|הגברה|pioneer|ציוד|apple\.com|app ?store/i },
-  { cat: "financial", re: /ישראכרט|isracard|מקס איט|max|כאל|cal|עמלה|ריבית|העברה|bit|paybox|ביטוח לאומי/i },
-];
-const categorize = (desc = "") => {
-  for (const { cat, re } of CATEGORIZE_RULES) if (re.test(desc)) return cat;
-  return "financial";
-};
-
 // Expenses start empty — the real data comes from importing your Isracard PDF
 // ("ייבוא מסנכרון"). This avoids duplicating transactions that the import provides.
 const SEED_EXPENSES = [];
@@ -258,18 +250,23 @@ const SEED_EXPENSES = [];
 // Asset base — starting point
 const INITIAL_PORTFOLIO = 127_440;   // אלטשולר שחם + אילון מן (מסלול מנייתי, ללא נגיעה)
 // מיטב טרייד — חשבון מסחר עצמאי חדש בשלבי הקמה (0 ₪ נכון לעכשיו)
-const CASH_RESERVES = 6_464;          // יתרה נזילה נוכחית בעו"ש
 const SALARY = { gross: 23_000, netInBank: 14_500, pension: 0, studyFund: 2_300, taxesAndSocial: 6_200 };
+const currentYear = () => new Date().getFullYear();
+const normalizeIncomeDate = (date) => {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(date || "")) return date;
+  const match = (date || "").match(/^(\d{2})\.(\d{2})$/);
+  return match ? `${currentYear()}-${match[2]}-${match[1]}` : date;
+};
 // Side hustle — music & events business
 const SIDE_HUSTLE = [
-  { id: 1, label: { he: "אירוע דיג'יי (חתונה)", en: "DJ wedding gig"     }, date: "08.06", amount: 4000 },
-  { id: 2, label: { he: "אירוע קריוקי",          en: "Karaoke event"      }, date: "21.06", amount: 1900 },
-  { id: 3, label: { he: "הופעה — קפה לנדוור",    en: "Gig — Café Landwer" }, date: "28.06", amount: 2660 },
+  { id: 1, label: { he: "אירוע דיג'יי (חתונה)", en: "DJ wedding gig"     }, date: `${currentYear()}-06-08`, amount: 4000 },
+  { id: 2, label: { he: "אירוע קריוקי",          en: "Karaoke event"      }, date: `${currentYear()}-06-21`, amount: 1900 },
+  { id: 3, label: { he: "הופעה — קפה לנדוור",    en: "Gig — Café Landwer" }, date: `${currentYear()}-06-28`, amount: 2660 },
 ];
 // One-time injections this month
 const WINDFALLS_SEED = [
-  { id: 1, label: { he: "פיצויים נטו (חוזה הייטק)", en: "Severance (net)"      }, date: "01.06", amount: 17_280, allocation: "investment" },
-  { id: 2, label: { he: "דמי ביטוח לאומי",          en: "National insurance"  }, date: "10.06", amount: 5_374,  allocation: "emergency"  },
+  { id: 1, label: { he: "פיצויים נטו (חוזה הייטק)", en: "Severance (net)"      }, date: `${currentYear()}-06-01`, amount: 17_280, allocation: "investment" },
+  { id: 2, label: { he: "דמי ביטוח לאומי",          en: "National insurance"  }, date: `${currentYear()}-06-10`, amount: 5_374,  allocation: "emergency"  },
 ];
 const labelFor = (item) =>
   typeof item.label === "string" ? item.label : (item.label?.[CURRENT_LANG] ?? item.label?.he ?? "");
@@ -289,6 +286,24 @@ const monthKey = (iso) => (iso || "").slice(0, 7); // "YYYY-MM"
 const monthLabel = (key) => {
   const [y, m] = key.split("-");
   return new Intl.DateTimeFormat(locale(), { month: "long", year: "numeric" }).format(new Date(+y, +m - 1, 1));
+};
+const shiftMonthKey = (month, delta) => {
+  const [year, monthNumber] = month.split("-").map(Number);
+  const date = new Date(year, monthNumber - 1 + delta, 1);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+};
+const isInstallmentExpense = (expense) => /תשלום\s*\d+\s*\/\s*\d+/.test(expense.note || "");
+const isExpectedRecurring = (expense) => Boolean(expense.recurring) || isInstallmentExpense(expense);
+const monthlySummary = (finance, expenses, month) => {
+  const gigs = finance.sideHustle.filter((gig) => monthKey(gig.date) === month);
+  const windfalls = finance.windfalls.filter((windfall) => monthKey(windfall.date) === month);
+  const monthExpenses = expenses.filter((expense) => monthKey(expense.date) === month);
+  const sideTotal = gigs.reduce((sum, gig) => sum + gig.amount, 0);
+  const windfallsTotal = windfalls.reduce((sum, windfall) => sum + windfall.amount, 0);
+  const expensesTotal = monthExpenses.reduce((sum, expense) => sum + expense.amount, 0);
+  const recurringIncome = finance.salary.netInBank + sideTotal;
+  const totalIncome = recurringIncome + windfallsTotal;
+  return { gigs, windfalls, monthExpenses, salaryNet: finance.salary.netInBank, sideTotal, windfallsTotal, expensesTotal, expenseCount: monthExpenses.length, recurringIncome, totalIncome, net: totalIncome - expensesTotal };
 };
 
 // LTR wrapper for currency / numbers inside an RTL page
@@ -326,7 +341,7 @@ function useExpenses() {
       for (const e of incoming) {
         if (e.extId && seen.has(e.extId)) { skipped++; continue; }
         if (e.extId) seen.add(e.extId);
-        fresh.push({ id: crypto.randomUUID(), note: "", category: "financial", ...e });
+        fresh.push({ id: crypto.randomUUID(), note: "", category: "financial", recurring: isInstallmentExpense(e), ...e });
         added++;
       }
       return [...fresh, ...prev];
@@ -347,7 +362,7 @@ function loadBudgets() {
     const raw = localStorage.getItem(BUDGETS_KEY);
     if (raw) saved = JSON.parse(raw) || {};
   } catch {}
-  return Object.fromEntries(CATEGORIES.map((c) => [c.id, typeof saved[c.id] === "number" ? saved[c.id] : c.target]));
+  return Object.fromEntries(BUDGET_CATEGORIES.map((c) => [c.id, typeof saved[c.id] === "number" ? saved[c.id] : c.target]));
 }
 function useBudgets() {
   const [budgets, setBudgets] = useState(loadBudgets);
@@ -368,18 +383,18 @@ const DEFAULT_FINANCE = {
   windfalls: WINDFALLS_SEED.map((w) => ({ ...w })),
   bank: { checking: 6464.81, creditCardOutstanding: 7660 },
 };
+const normalizeFinance = (finance = {}) => ({
+  salary: { ...DEFAULT_FINANCE.salary, ...(finance.salary || {}) },
+  bank: { ...DEFAULT_FINANCE.bank, ...(finance.bank || {}) },
+  sideHustle: Array.isArray(finance.sideHustle) ? finance.sideHustle.map((gig) => ({ ...gig, date: normalizeIncomeDate(gig.date) })) : DEFAULT_FINANCE.sideHustle,
+  windfalls: Array.isArray(finance.windfalls) ? finance.windfalls.map((windfall) => ({ ...windfall, date: normalizeIncomeDate(windfall.date) })) : DEFAULT_FINANCE.windfalls,
+});
 
 function loadFinance() {
   try {
     const raw = localStorage.getItem(FINANCE_KEY);
     if (!raw) return DEFAULT_FINANCE;
-    const p = JSON.parse(raw);
-    return {
-      salary: { ...DEFAULT_FINANCE.salary, ...(p.salary || {}) },
-      bank: { ...DEFAULT_FINANCE.bank, ...(p.bank || {}) },
-      sideHustle: Array.isArray(p.sideHustle) ? p.sideHustle : DEFAULT_FINANCE.sideHustle,
-      windfalls: Array.isArray(p.windfalls) ? p.windfalls : DEFAULT_FINANCE.windfalls,
-    };
+    return normalizeFinance(JSON.parse(raw));
   } catch { return DEFAULT_FINANCE; }
 }
 
@@ -506,16 +521,11 @@ const BalanceBar = ({ label, value, max, tone, icon: Icon }) => {
   );
 };
 
-const MonthlyBalance = ({ salaryNet, sideTotal, windfallsTotal, expenses, month }) => {
-  const monthExpenses = useMemo(() => expenses.filter((e) => monthKey(e.date) === month), [expenses, month]);
-  const expensesTotal = useMemo(() => monthExpenses.reduce((s, e) => s + e.amount, 0), [monthExpenses]);
-  const expenseCount = monthExpenses.length;
-  const recurringIn = salaryNet + sideTotal;
-  const totalIn = recurringIn + windfallsTotal;
-  const net = totalIn - expensesTotal;
-  const recurringNet = recurringIn - expensesTotal;
-  const savingsRate = totalIn ? net / totalIn : 0;
-  const max = Math.max(totalIn, expensesTotal, 1);
+const MonthlyBalance = ({ summary, month }) => {
+  const { sideTotal, windfallsTotal, expensesTotal, expenseCount, recurringIncome, totalIncome, net } = summary;
+  const recurringNet = recurringIncome - expensesTotal;
+  const savingsRate = totalIncome ? net / totalIncome : 0;
+  const max = Math.max(totalIncome, expensesTotal, 1);
   const surplus = net >= 0;
 
   return (
@@ -527,7 +537,7 @@ const MonthlyBalance = ({ salaryNet, sideTotal, windfallsTotal, expenses, month 
       <div className="relative grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/[0.05] p-4">
           <div className="text-[11px] tracking-wide text-emerald-300/80 inline-flex items-center gap-1.5"><ArrowDownLeft className="w-3.5 h-3.5" />{T.totalIncomeLabel}</div>
-          <div className="mt-1 text-3xl font-semibold text-emerald-200"><Money>{fmt(totalIn)}</Money></div>
+          <div className="mt-1 text-3xl font-semibold text-emerald-200"><Money>{fmt(totalIncome)}</Money></div>
         </div>
         <div className="rounded-xl border border-rose-500/25 bg-rose-500/[0.05] p-4">
           <div className="text-[11px] tracking-wide text-rose-300/80 inline-flex items-center gap-1.5"><ArrowUpRight className="w-3.5 h-3.5" />{T.totalExpensesLabel}</div>
@@ -544,13 +554,13 @@ const MonthlyBalance = ({ salaryNet, sideTotal, windfallsTotal, expenses, month 
       </div>
 
       <div className="relative mt-5 space-y-3">
-        <BalanceBar label={T.totalIncomeLabel}   value={totalIn}       max={max} tone="in"  icon={ArrowDownLeft} />
+        <BalanceBar label={T.totalIncomeLabel}   value={totalIncome}   max={max} tone="in"  icon={ArrowDownLeft} />
         <BalanceBar label={T.totalExpensesLabel} value={expensesTotal} max={max} tone="out" icon={ArrowUpRight} />
       </div>
 
       <div className="relative mt-5 flex flex-wrap items-center gap-2 text-[11px]">
         <span className="text-slate-500">{T.totalIncomeLabel}:</span>
-        <Pill tone="pos">{T.salaryNet} <Money>{fmt(salaryNet)}</Money></Pill>
+        <Pill tone="pos">{T.salaryNet} <Money>{fmt(summary.salaryNet)}</Money></Pill>
         <Pill tone="pos">{T.sideTotal} <Money>{fmt(sideTotal)}</Money></Pill>
         {windfallsTotal > 0 && <Pill tone="warn">{T.oneTime} <Money>{fmt(windfallsTotal)}</Money></Pill>}
         <span className="mx-1 text-slate-700">·</span>
@@ -627,10 +637,6 @@ const FreedomHero = ({ portfolio, monthlyContribution }) => {
 // Salary / Side hustle / Windfalls
 // ────────────────────────────────────────────────────────────────────────────
 // Shared modal + input primitives (also used by ExpenseEditor-style forms)
-const todayDDMM = () => {
-  const d = new Date();
-  return `${String(d.getDate()).padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")}`;
-};
 const inputCls = "w-full bg-slate-950/60 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder:text-slate-600 focus:border-teal-500/50 focus:outline-none";
 const TextInput = (props) => <input type="text" className={inputCls} {...props} />;
 const NumInput  = (props) => <input type="number" step="0.01" dir="ltr" className={`${inputCls} text-end`} {...props} />;
@@ -723,7 +729,7 @@ const SideHustleCard = ({ gigs, onAdd, onUpdate, onDelete }) => {
       <SectionTitle icon={Music2} title={T.sideTitle} subtitle={T.sideSub}
         right={
           <div className="flex items-center gap-2">
-            <AddBtn onClick={() => setEditor({ label: "", amount: "", date: todayDDMM() })} label={T.addGig} />
+            <AddBtn onClick={() => setEditor({ label: "", amount: "", date: new Date().toISOString().slice(0, 10) })} label={T.addGig} />
             <button onClick={() => setOpen((o) => !o)} className="text-[11px] text-slate-400 hover:text-teal-300 inline-flex items-center gap-1">
               {open ? T.hideLedger : T.showLedger}
               <ChevronLeft className={`w-3 h-3 transition-transform ${open ? "-rotate-90" : ""}`} />
@@ -749,7 +755,7 @@ const SideHustleCard = ({ gigs, onAdd, onUpdate, onDelete }) => {
                 <div className="min-w-0">
                   <div className="text-slate-200 truncate">{labelFor(g)}</div>
                   <div className="text-[11px] text-slate-500 flex items-center gap-1">
-                    <Calendar className="w-3 h-3" /> {g.date}
+                    <Calendar className="w-3 h-3" /> <Money>{fmtDate(g.date)}</Money>
                   </div>
                 </div>
               </div>
@@ -779,7 +785,7 @@ const WindfallsCard = ({ items, onAdd, onUpdate, onDelete, onToggle }) => {
       <SectionTitle icon={Gift} title={T.windfallsTitle} subtitle={T.windfallsSub}
         right={
           <div className="flex items-center gap-2">
-            <AddBtn onClick={() => setEditor({ label: "", amount: "", date: todayDDMM(), allocation: "investment" })} label={T.addWindfall} />
+            <AddBtn onClick={() => setEditor({ label: "", amount: "", date: new Date().toISOString().slice(0, 10), allocation: "investment" })} label={T.addWindfall} />
             <Pill tone="warn"><Money>{fmt(total)}</Money></Pill>
           </div>
         } />
@@ -791,7 +797,7 @@ const WindfallsCard = ({ items, onAdd, onUpdate, onDelete, onToggle }) => {
             </div>
             <div className="min-w-0 flex-1">
               <div className="text-sm text-slate-200 truncate">{labelFor(w)}</div>
-              <div className="text-[11px] text-slate-500">{w.date} · <Money>{fmt(w.amount)}</Money></div>
+              <div className="text-[11px] text-slate-500"><Money>{fmtDate(w.date)}</Money> · <Money>{fmt(w.amount)}</Money></div>
             </div>
             <button onClick={() => onToggle(w.id)}
               className={"text-[11px] px-2.5 py-1 rounded-full border transition " +
@@ -869,7 +875,7 @@ const SalaryEditor = ({ initial, onClose, onSave }) => {
 };
 
 const GigEditor = ({ initial, onClose, onSave, onDelete }) => {
-  const [f, setF] = useState({ label: labelFor(initial), amount: initial.amount === "" ? "" : String(initial.amount ?? ""), date: initial.date || todayDDMM() });
+  const [f, setF] = useState({ label: labelFor(initial), amount: initial.amount === "" ? "" : String(initial.amount ?? ""), date: normalizeIncomeDate(initial.date) || new Date().toISOString().slice(0, 10) });
   const [err, setErr] = useState(null);
   const submit = (e) => {
     e.preventDefault();
@@ -890,7 +896,7 @@ const GigEditor = ({ initial, onClose, onSave, onDelete }) => {
       <form onSubmit={submit} className="space-y-3">
         <Field label={T.fieldLabel}><TextInput autoFocus value={f.label} onChange={(e) => setF({ ...f, label: e.target.value })} placeholder={T.fieldLabelPh} /></Field>
         <div className="grid grid-cols-2 gap-3">
-          <Field label={T.colDate}><TextInput value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} placeholder="28.06" /></Field>
+          <Field label={T.colDate}><input type="date" value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} className={inputCls} /></Field>
           <Field label={T.fieldAmount}><NumInput value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} placeholder="0.00" /></Field>
         </div>
         {err && <ErrBox>{err}</ErrBox>}
@@ -901,7 +907,7 @@ const GigEditor = ({ initial, onClose, onSave, onDelete }) => {
 };
 
 const WindfallEditor = ({ initial, onClose, onSave, onDelete }) => {
-  const [f, setF] = useState({ label: labelFor(initial), amount: initial.amount === "" ? "" : String(initial.amount ?? ""), date: initial.date || todayDDMM(), allocation: initial.allocation || "investment" });
+  const [f, setF] = useState({ label: labelFor(initial), amount: initial.amount === "" ? "" : String(initial.amount ?? ""), date: normalizeIncomeDate(initial.date) || new Date().toISOString().slice(0, 10), allocation: initial.allocation || "investment" });
   const [err, setErr] = useState(null);
   const submit = (e) => {
     e.preventDefault();
@@ -919,7 +925,7 @@ const WindfallEditor = ({ initial, onClose, onSave, onDelete }) => {
       <form onSubmit={submit} className="space-y-3">
         <Field label={T.fieldLabel}><TextInput autoFocus value={f.label} onChange={(e) => setF({ ...f, label: e.target.value })} placeholder={T.fieldLabelPh} /></Field>
         <div className="grid grid-cols-2 gap-3">
-          <Field label={T.colDate}><TextInput value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} placeholder="01.06" /></Field>
+          <Field label={T.colDate}><input type="date" value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} className={inputCls} /></Field>
           <Field label={T.fieldAmount}><NumInput value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} placeholder="0.00" /></Field>
         </div>
         <Field label={T.fieldAllocation}>
@@ -963,18 +969,18 @@ const MonthNav = ({ month, onChange }) => {
   };
   const isCurrent = month === currentMonthKey();
   return (
-    <div className="flex items-center gap-1.5">
+    <div dir="ltr" className="flex items-center gap-1.5">
       <button type="button" onClick={() => shift(-1)} title={T.prevMonth}
         className="p-1.5 rounded-lg border border-slate-800 hover:border-teal-500/40 text-slate-400 hover:text-teal-300 transition">
-        <ChevronLeft className={isHe() ? "w-3.5 h-3.5" : "w-3.5 h-3.5 rotate-180"} />
+        <ChevronLeft className="w-3.5 h-3.5" />
       </button>
-      <span className="min-w-[130px] text-center text-sm text-slate-200 font-medium px-1"><Money>{monthLabel(month)}</Money></span>
+      <span dir={isHe() ? "rtl" : "ltr"} className="min-w-[130px] text-center text-sm text-slate-200 font-medium px-1">{monthLabel(month)}</span>
       <button type="button" onClick={() => shift(1)} title={T.nextMonth}
         className="p-1.5 rounded-lg border border-slate-800 hover:border-teal-500/40 text-slate-400 hover:text-teal-300 transition">
-        <ChevronLeft className={isHe() ? "w-3.5 h-3.5 rotate-180" : "w-3.5 h-3.5"} />
+        <ChevronRight className="w-3.5 h-3.5" />
       </button>
       {!isCurrent && (
-        <button type="button" onClick={() => onChange(currentMonthKey())}
+        <button dir={isHe() ? "rtl" : "ltr"} type="button" onClick={() => onChange(currentMonthKey())}
           className="text-[11px] text-teal-300/80 hover:text-teal-200 px-2 py-1 rounded-md border border-teal-500/30 hover:border-teal-500/50 transition">
           {T.thisMonth}
         </button>
@@ -987,10 +993,10 @@ const MonthNav = ({ month, onChange }) => {
 // Budget table — derived from a single month's expenses
 // ────────────────────────────────────────────────────────────────────────────
 const buildBudgetRows = (expenses, budgets) =>
-  CATEGORIES.map((c) => ({
+  BUDGET_CATEGORIES.map((c) => ({
     ...c,
     target: budgets?.[c.id] ?? c.target,
-    actual: expenses.filter((e) => e.category === c.id).reduce((s, e) => s + e.amount, 0),
+    actual: expenses.filter((e) => c.isRollup ? isExpectedRecurring(e) : e.category === c.id).reduce((s, e) => s + e.amount, 0),
   }));
 
 // Click-to-edit budget target amount.
@@ -1036,8 +1042,9 @@ const BudgetTable = ({ expenses, month, budgets, onEditTarget, className = "" })
   const monthExpenses = useMemo(() => expenses.filter((e) => monthKey(e.date) === month), [expenses, month]);
   const rows = useMemo(() => buildBudgetRows(monthExpenses, budgets), [monthExpenses, budgets]);
   const totals = useMemo(() => {
-    const target = rows.reduce((s, r) => s + r.target, 0);
-    const actual = rows.reduce((s, r) => s + r.actual, 0);
+    const spendingRows = rows.filter((r) => !r.isRollup);
+    const target = spendingRows.reduce((s, r) => s + r.target, 0);
+    const actual = spendingRows.reduce((s, r) => s + r.actual, 0);
     return { target, actual, variance: target - actual };
   }, [rows]);
 
@@ -1066,7 +1073,7 @@ const BudgetTable = ({ expenses, month, budgets, onEditTarget, className = "" })
               const Icon = r.icon;
               const isOpen = expanded === r.id;
               const catItems = monthExpenses
-                .filter((e) => e.category === r.id)
+                .filter((e) => r.isRollup ? isExpectedRecurring(e) : e.category === r.id)
                 .sort((a, b) => (a.date < b.date ? 1 : -1));
               return (
                 <React.Fragment key={r.id}>
@@ -1081,7 +1088,10 @@ const BudgetTable = ({ expenses, month, budgets, onEditTarget, className = "" })
                       </div>
                     </td>
                     <td className="px-4 py-3 text-end"><Money className="text-slate-100">{fmt(r.actual)}</Money></td>
-                    <td className="px-4 py-3 text-end"><EditableTarget value={r.target} onSave={(v) => onEditTarget(r.id, v)} /></td>
+                    <td className="px-4 py-3 text-end">
+                      <EditableTarget value={r.target} onSave={(v) => onEditTarget(r.id, v)} />
+                      {r.isRollup && <div className="mt-1 text-[10px] text-slate-500">{T.annualProjection} <Money>{fmt(r.target * 12)}</Money></div>}
+                    </td>
                     <td className={`px-4 py-3 text-end font-medium ${over ? "text-rose-300" : "text-emerald-300"}`}>
                       <Money>{over ? "−" : "+"}{fmt(Math.abs(variance))}</Money>
                     </td>
@@ -1096,6 +1106,7 @@ const BudgetTable = ({ expenses, month, budgets, onEditTarget, className = "" })
                       <div className="mt-1 text-[11px] text-slate-500">
                         <Money>{pct(r.target ? r.actual / r.target : 0, 0)}</Money> {T.ofBudget}
                       </div>
+                      {r.isRollup && <div className="text-[10px] text-slate-500">{T.annualProjection} <Money>{fmt(r.actual * 12)}</Money></div>}
                     </td>
                   </tr>
                   {isOpen && (
@@ -1139,6 +1150,19 @@ const BudgetTable = ({ expenses, month, budgets, onEditTarget, className = "" })
   );
 };
 
+const SpendingMixLabel = ({ cx, cy, midAngle, outerRadius, payload }) => {
+  const radius = outerRadius + 18;
+  const x = cx + radius * Math.cos(-midAngle * Math.PI / 180);
+  const y = cy + radius * Math.sin(-midAngle * Math.PI / 180);
+  const anchor = x > cx ? "start" : "end";
+  return (
+    <text x={x} y={y} textAnchor={anchor} fill="rgb(203 213 225)" fontSize="10">
+      <tspan x={x} dy="-0.45em">{payload.name}</tspan>
+      <tspan x={x} dy="1.2em" fill="rgb(148 163 184)">{fmt(payload.value)}</tspan>
+    </text>
+  );
+};
+
 const ExpensePie = ({ expenses, month }) => {
   const monthExpenses = useMemo(() => expenses.filter((e) => monthKey(e.date) === month), [expenses, month]);
   const data = useMemo(() =>
@@ -1151,10 +1175,11 @@ const ExpensePie = ({ expenses, month }) => {
   return (
     <Card className="p-5">
       <SectionTitle icon={CircleDollarSign} title={T.spendingMix} subtitle={`${T.spendingMixSub} ${monthLabel(month)}`} />
-      <div className="h-[260px]">
+      <div className="h-[300px]">
         <ResponsiveContainer>
           <PieChart>
-            <Pie data={data} dataKey="value" nameKey="name" innerRadius={55} outerRadius={90} paddingAngle={2} stroke="rgb(15 23 42)" strokeWidth={2}>
+            <Pie data={data} dataKey="value" nameKey="name" innerRadius={48} outerRadius={72} paddingAngle={2} stroke="rgb(15 23 42)" strokeWidth={2}
+              labelLine={{ stroke: "rgb(100 116 139)", strokeWidth: 1 }} label={SpendingMixLabel}>
               {data.map((d, i) => <Cell key={i} fill={d.color} />)}
             </Pie>
             <Tooltip contentStyle={{ background: "rgb(2 6 23 / 0.95)", border: "1px solid rgb(30 41 59)", borderRadius: 12, color: "rgb(226 232 240)", fontSize: 12 }}
@@ -1164,111 +1189,14 @@ const ExpensePie = ({ expenses, month }) => {
       </div>
       <div className="grid grid-cols-2 gap-1.5 mt-2">
         {data.map((d) => (
-          <div key={d.name} className="flex items-center gap-2 text-[11px] text-slate-400">
+          <div key={d.name} className="flex items-center justify-between gap-2 text-[11px] text-slate-400">
+            <span className="flex min-w-0 items-center gap-2">
             <span className="w-2 h-2 rounded-full" style={{ background: d.color }} />
             <span className="truncate">{d.name}</span>
+            </span>
+            <Money className="shrink-0 text-slate-300">{fmt(d.value)}</Money>
           </div>
         ))}
-      </div>
-    </Card>
-  );
-};
-
-// ────────────────────────────────────────────────────────────────────────────
-// Engine
-// ────────────────────────────────────────────────────────────────────────────
-const Slider = ({ label, value, onChange, min, max, step, format }) => (
-  <div>
-    <div className="flex justify-between items-baseline text-xs">
-      <span className="text-slate-400">{label}</span>
-      <Money className="text-slate-100 font-medium">{format(value)}</Money>
-    </div>
-    <input type="range" min={min} max={max} step={step} value={value} dir="ltr"
-      onChange={(e) => onChange(parseFloat(e.target.value))}
-      className="mt-2 w-full accent-teal-400 h-1.5" />
-    <div className="flex justify-between text-[10px] text-slate-600 mt-1">
-      <Money>{format(min)}</Money>
-      <Money>{format(max)}</Money>
-    </div>
-  </div>
-);
-
-const PortfolioEngine = ({ initial, contribution, returnRate, setInitial, setContribution, setReturnRate }) => {
-  const { series, freedomYear, freedomMonth, valueAtFreedom } = useMemo(() => {
-    const months = 15 * 12;
-    const monthlyRate = returnRate / 12;
-    const rows = [];
-    let value = initial;
-    let fy = null, fm = null, vf = null;
-    for (let m = 0; m <= months; m++) {
-      const passive = (value * SWR) / 12;
-      if (fy === null && passive >= PASSIVE_INCOME_TARGET) { fy = Math.floor(m / 12); fm = m % 12; vf = value; }
-      if (m % 3 === 0) rows.push({ month: m, year: +(m / 12).toFixed(2), value: Math.round(value), passive: Math.round(passive), target: PASSIVE_INCOME_TARGET });
-      value = value * (1 + monthlyRate) + contribution;
-    }
-    return { series: rows, freedomYear: fy, freedomMonth: fm, valueAtFreedom: vf };
-  }, [initial, contribution, returnRate]);
-
-  const freedomLabel = freedomYear === null
-    ? T.beyond15
-    : (isHe()
-        ? `${freedomYear} ${T.yearsWord} ו-${freedomMonth} ${T.monthsWord}`
-        : `${freedomYear}y ${freedomMonth}m`);
-
-  return (
-    <Card className="p-5 lg:p-6">
-      <SectionTitle icon={LineChartIcon} title={T.engineTitle} subtitle={T.engineSub}
-        right={<Pill tone={freedomYear !== null ? "pos" : "warn"}><Flame className="w-3 h-3" />{T.freedomIn} {freedomLabel}</Pill>} />
-      <div className="grid lg:grid-cols-[280px_1fr] gap-6">
-        <div className="space-y-5 rounded-xl border border-slate-800 bg-slate-950/40 p-4">
-          <Slider label={T.initialPortfolio}    value={initial}      min={100_000} max={3_000_000} step={10_000} format={fmt} onChange={setInitial} />
-          <Slider label={T.monthlyContribution} value={contribution} min={1_000}   max={40_000}    step={500}    format={fmt} onChange={setContribution} />
-          <Slider label={T.expectedReturn}      value={returnRate}   min={0.03}    max={0.12}      step={0.005}  format={(v) => pct(v)} onChange={setReturnRate} />
-          <div className="pt-2 border-t border-slate-800/80 grid grid-cols-2 gap-3">
-            <div>
-              <div className="text-[11px] text-slate-500">{T.yearsToFreedom}</div>
-              <div className="text-lg font-semibold text-teal-300">
-                <Money>{freedomYear !== null ? `${freedomYear}.${Math.round((freedomMonth / 12) * 10)}` : "—"}</Money>
-              </div>
-            </div>
-            <div>
-              <div className="text-[11px] text-slate-500">{T.portfolioAtGoal}</div>
-              <div className="text-lg font-semibold text-slate-100"><Money>{valueAtFreedom ? fmt(valueAtFreedom) : "—"}</Money></div>
-            </div>
-          </div>
-        </div>
-        <div dir="ltr" className="h-[340px]">
-          <ResponsiveContainer>
-            <AreaChart data={series} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
-              <defs>
-                <linearGradient id="port" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#2dd4bf" stopOpacity={0.55} />
-                  <stop offset="100%" stopColor="#2dd4bf" stopOpacity={0} />
-                </linearGradient>
-                <linearGradient id="pass" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#22d3ee" stopOpacity={0.35} />
-                  <stop offset="100%" stopColor="#22d3ee" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgb(30 41 59)" />
-              <XAxis dataKey="year" stroke="rgb(100 116 139)" tick={{ fill: "rgb(148 163 184)", fontSize: 11 }} tickFormatter={(v) => `${Math.round(v)}y`} />
-              <YAxis yAxisId="left"  stroke="rgb(100 116 139)" tick={{ fill: "rgb(148 163 184)", fontSize: 11 }} tickFormatter={(v) => `₪${fmtCompact(v)}`} />
-              <YAxis yAxisId="right" orientation="right" stroke="rgb(100 116 139)" tick={{ fill: "rgb(148 163 184)", fontSize: 11 }} tickFormatter={(v) => `₪${fmtCompact(v)}`} />
-              <Tooltip contentStyle={{ background: "rgb(2 6 23 / 0.95)", border: "1px solid rgb(30 41 59)", borderRadius: 12, color: "rgb(226 232 240)", fontSize: 12 }}
-                formatter={(v, name) => [fmt(v), name === "value" ? T.portfolio : T.passivePerMo]}
-                labelFormatter={(l) => `${T.yearWord} ${(+l).toFixed(1)}`} />
-              <Area yAxisId="left"  type="monotone" dataKey="value"   stroke="#2dd4bf" strokeWidth={2} fill="url(#port)" name={T.portfolio} />
-              <Area yAxisId="right" type="monotone" dataKey="passive" stroke="#22d3ee" strokeWidth={2} fill="url(#pass)" name={T.passivePerMo} />
-              <ReferenceLine yAxisId="right" y={PASSIVE_INCOME_TARGET} stroke="#f59e0b" strokeDasharray="4 4"
-                label={{ value: T.goal20k, fill: "#fbbf24", fontSize: 11, position: "insideTopRight" }} />
-              {freedomYear !== null && (
-                <ReferenceLine yAxisId="left" x={freedomYear + freedomMonth / 12} stroke="#34d399" strokeDasharray="3 3"
-                  label={{ value: T.freedomLabel, fill: "#6ee7b7", fontSize: 11, position: "top" }} />
-              )}
-              <Legend wrapperStyle={{ fontSize: 12, color: "rgb(148 163 184)" }} />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
       </div>
     </Card>
   );
@@ -1370,6 +1298,7 @@ const CategoryTag = ({ value, onChange }) => {
 const ExpensesView = ({ expenses, onAdd, onUpdate, onDelete, onReset, onImport }) => {
   const [editor, setEditor] = useState(null);
   const [filterCat, setFilterCat] = useState("all");
+  const [filterRecurring, setFilterRecurring] = useState(false);
   const [monthFilter, setMonthFilter] = useState("latest"); // "latest" | "all" | "YYYY-MM"
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState({ key: "date", dir: "desc" });
@@ -1413,10 +1342,11 @@ const ExpensesView = ({ expenses, onAdd, onUpdate, onDelete, onReset, onImport }
     const q = search.trim().toLowerCase();
     return expenses.filter((e) => {
       if (filterCat !== "all" && e.category !== filterCat) return false;
+      if (filterRecurring && !isExpectedRecurring(e)) return false;
       if (q && !e.merchant.toLowerCase().includes(q) && !(e.note || "").toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [expenses, filterCat, search]);
+  }, [expenses, filterCat, filterRecurring, search]);
 
   // Per-month totals (newest first) for the breakdown strip + the month dropdown.
   const months = useMemo(() => {
@@ -1468,7 +1398,7 @@ const ExpensesView = ({ expenses, onAdd, onUpdate, onDelete, onReset, onImport }
     URL.revokeObjectURL(url);
   };
 
-  const blank = () => ({ date: new Date().toISOString().slice(0, 10), merchant: "", amount: "", category: getLastCategory(), note: "" });
+  const blank = () => ({ date: new Date().toISOString().slice(0, 10), merchant: "", amount: "", category: getLastCategory(), note: "", recurring: false });
 
   return (
     <div className="space-y-4">
@@ -1512,6 +1442,9 @@ const ExpensesView = ({ expenses, onAdd, onUpdate, onDelete, onReset, onImport }
                 <c.icon className="w-3 h-3" /> {catName(c)}
               </CatChip>
             ))}
+            <CatChip active={filterRecurring} color="#60a5fa" onClick={() => setFilterRecurring((active) => !active)}>
+              <Repeat2 className="w-3 h-3" /> {T.recurring}
+            </CatChip>
           </div>
         </div>
 
@@ -1552,6 +1485,7 @@ const ExpensesView = ({ expenses, onAdd, onUpdate, onDelete, onReset, onImport }
                 <th className="text-start px-4 py-2.5 cursor-pointer hover:text-slate-200" onClick={() => toggleSort("category")}>
                   {T.colCategory} {sort.key === "category" && (sort.dir === "asc" ? "↑" : "↓")}
                 </th>
+                <th className="text-center px-4 py-2.5">{T.recurring}</th>
                 <th className="text-end px-4 py-2.5 cursor-pointer hover:text-slate-200" onClick={() => toggleSort("amount")}>
                   {T.colAmount} {sort.key === "amount" && (sort.dir === "asc" ? "↑" : "↓")}
                 </th>
@@ -1562,7 +1496,7 @@ const ExpensesView = ({ expenses, onAdd, onUpdate, onDelete, onReset, onImport }
             <tbody className="divide-y divide-slate-800/80">
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-12 text-center">
+                  <td colSpan={7} className="px-4 py-12 text-center">
                     <div className="text-slate-400 text-sm mb-3">{T.empty}</div>
                     <button onClick={() => setEditor(blank())}
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-teal-400/10 text-teal-300 border border-teal-500/30 text-xs hover:bg-teal-400/20 transition">
@@ -1572,14 +1506,29 @@ const ExpensesView = ({ expenses, onAdd, onUpdate, onDelete, onReset, onImport }
                 </tr>
               )}
               {filtered.map((e) => {
+                const expectedRecurring = isExpectedRecurring(e);
+                const installment = isInstallmentExpense(e);
                 return (
                   <tr key={e.id} className="hover:bg-slate-900/40 transition group">
                     <td className="px-4 py-3 text-slate-400 text-xs whitespace-nowrap"><Money>{fmtDate(e.date)}</Money></td>
                     <td className="px-4 py-3">
-                      <div className="text-slate-200">{e.merchant}</div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-slate-200">{e.merchant}</span>
+                        {installment && <Pill tone="info"><Repeat2 className="w-3 h-3" /> {T.expectedRecurring}</Pill>}
+                      </div>
                     </td>
                     <td className="px-4 py-3">
                       <CategoryTag value={e.category} onChange={(cat) => { onUpdate(e.id, { category: cat }); rememberCategory(cat); }} />
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      {installment ? (
+                        <span title={T.expectedRecurring} className="inline-flex p-1.5 rounded bg-cyan-500/15 text-cyan-300"><Repeat2 className="w-3.5 h-3.5" /></span>
+                      ) : (
+                        <button type="button" onClick={() => onUpdate(e.id, { recurring: !expectedRecurring })} title={T.recurringExpense}
+                          className={`p-1.5 rounded transition ${expectedRecurring ? "bg-cyan-500/15 text-cyan-300 hover:bg-cyan-500/25" : "text-slate-600 hover:bg-slate-800 hover:text-slate-300"}`}>
+                          <Repeat2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-end"><Money className="text-slate-100 font-medium">{fmtMoney(e.amount)}</Money></td>
                     <td className="px-4 py-3 max-w-[220px] align-middle">
@@ -1704,6 +1653,12 @@ const ExpenseEditor = ({ initial, onCancel, onSave, onDelete }) => {
               placeholder={T.fieldNotePh}
               className="w-full bg-slate-950/60 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder:text-slate-600 focus:border-teal-500/50 focus:outline-none" />
           </Field>
+          <label className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
+            <input type="checkbox" checked={Boolean(form.recurring)} onChange={(e) => setForm({ ...form, recurring: e.target.checked })}
+              className="w-4 h-4 accent-teal-400" />
+            <Repeat2 className="w-4 h-4 text-cyan-300" />
+            {T.recurringExpense}
+          </label>
 
           {err && <div className="text-xs text-rose-300 bg-rose-500/10 border border-rose-500/20 rounded-lg px-3 py-2">{err}</div>}
 
@@ -1730,28 +1685,22 @@ const ExpenseEditor = ({ initial, onCancel, onSave, onDelete }) => {
 // ────────────────────────────────────────────────────────────────────────────
 // Cash flow summary
 // ────────────────────────────────────────────────────────────────────────────
-const CashFlowSummary = ({ salary, sideHustleTotal, expenses }) => {
-  const totalIn = salary.netInBank + sideHustleTotal;
-  const net = totalIn - expenses;
+const CashFlowSummary = ({ summary, history, month }) => {
+  const { salaryNet, sideTotal, expensesTotal, totalIncome, net } = summary;
   return (
     <Card className="p-5">
-      <SectionTitle icon={TrendingUp} title={T.cashflowSummary} subtitle={T.cashflowSummarySub} />
+      <SectionTitle icon={TrendingUp} title={`${T.cashflowSummary} · ${monthLabel(month)}`} subtitle={T.cashflowSummarySub} />
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-        <Stat label={T.salaryNet}   value={fmt(salary.netInBank)} tone="pos" />
-        <Stat label={T.sideTotal}   value={fmt(sideHustleTotal)} tone="pos" />
-        <Stat label={T.expenses}    value={fmt(expenses)} tone="neg" />
-        <Stat label={T.netToInvest} value={fmt(net)} sub={<><Money>{pct(totalIn ? net / totalIn : 0, 0)}</Money> {T.savingsRateShort}</>} tone={net >= 0 ? "pos" : "neg"} />
+        <Stat label={T.salaryNet}   value={fmt(salaryNet)} tone="pos" />
+        <Stat label={T.sideTotal}   value={fmt(sideTotal)} tone="pos" />
+        <Stat label={T.expenses}    value={fmt(expensesTotal)} tone="neg" />
+        <Stat label={T.netToInvest} value={fmt(net)} sub={<><Money>{pct(totalIncome ? net / totalIncome : 0, 0)}</Money> {T.savingsRateShort}</>} tone={net >= 0 ? "pos" : "neg"} />
       </div>
       <div dir="ltr" className="h-[180px] mt-4">
         <ResponsiveContainer>
-          <LineChart data={[
-            { m: T.chartMonths[0], inc: 32800, exp: 14200 },
-            { m: T.chartMonths[1], inc: 35100, exp: 13800 },
-            { m: T.chartMonths[2], inc: 38400, exp: 15600 },
-            { m: T.chartMonths[3], inc: totalIn, exp: expenses },
-          ]}>
+          <LineChart data={history}>
             <CartesianGrid strokeDasharray="3 3" stroke="rgb(30 41 59)" />
-            <XAxis dataKey="m" stroke="rgb(100 116 139)" tick={{ fill: "rgb(148 163 184)", fontSize: 11 }} />
+            <XAxis dataKey="label" stroke="rgb(100 116 139)" tick={{ fill: "rgb(148 163 184)", fontSize: 11 }} />
             <YAxis stroke="rgb(100 116 139)" tick={{ fill: "rgb(148 163 184)", fontSize: 11 }} tickFormatter={(v) => `₪${fmtCompact(v)}`} />
             <Tooltip contentStyle={{ background: "rgb(2 6 23 / 0.95)", border: "1px solid rgb(30 41 59)", borderRadius: 12, color: "rgb(226 232 240)", fontSize: 12 }} formatter={(v) => fmt(v)} />
             <Line type="monotone" dataKey="inc" stroke="#2dd4bf" strokeWidth={2} dot={{ r: 3 }} name={T.income} />
@@ -1789,19 +1738,18 @@ const LangToggle = ({ lang, setLang }) => (
 
 // TABS computed inside <Wallet/> so labels re-evaluate when language changes.
 const TAB_DEFS = [
+  { id: "budget",    labelKey: "tabBudgets",   icon: Target },
   { id: "dashboard", labelKey: "tabDashboard", icon: LayoutDashboard },
   { id: "cashflow",  labelKey: "tabCashflow",  icon: WalletIcon },
   { id: "expenses",  labelKey: "tabExpenses",  icon: Receipt },
-  { id: "budget",    labelKey: "tabBudgets",   icon: Target },
-  { id: "engine",    labelKey: "tabEngine",    icon: LineChartIcon },
 ];
 const TAB_IDS = new Set(TAB_DEFS.map((t) => t.id));
 const TAB_KEY = "wallet.tab.v1";
 const loadTab = () => {
   try {
     const saved = localStorage.getItem(TAB_KEY);
-    return TAB_IDS.has(saved) ? saved : "dashboard";
-  } catch { return "dashboard"; }
+    return TAB_IDS.has(saved) ? saved : "budget";
+  } catch { return "budget"; }
 };
 // The current calendar month, e.g. "2026-08" — used as the default month-selector value.
 const currentMonthKey = () => monthKey(new Date().toISOString());
@@ -1838,7 +1786,7 @@ export default function Wallet() {
       const res = await loadFromServer();
       if (res?.connected) {
         if (res.state?.expenses) _setExpenses(res.state.expenses);
-        if (res.state?.finance) _setFinance(res.state.finance);
+        if (res.state?.finance) _setFinance(normalizeFinance(res.state.finance));
         lastSavedAt.current = res.state?.savedAt;
         setServerStatus("connected");
       }
@@ -1884,15 +1832,16 @@ export default function Wallet() {
 
   const sideHustleTotal = finance.sideHustle.reduce((s, g) => s + g.amount, 0);
 
-  const [initial, setInitial]           = useState(INITIAL_PORTFOLIO);
-  const [contribution, setContribution] = useState(() => Math.round((finance.salary.netInBank + sideHustleTotal) * 0.35));
-  const [returnRate, setReturnRate]     = useState(0.08);
+  const [initial] = useState(INITIAL_PORTFOLIO);
+  const [contribution] = useState(() => Math.round((finance.salary.netInBank + sideHustleTotal) * 0.35));
 
-  const totalIncome   = finance.salary.netInBank + sideHustleTotal;
-  const totalExpenses = useMemo(() => expenses.reduce((s, e) => s + e.amount, 0), [expenses]);
-  const netIncome     = totalIncome - totalExpenses;
-  const savingsRate   = totalIncome ? netIncome / totalIncome : 0;
-  const runwayMonths  = finance.bank.checking / (totalExpenses || 1);
+  const selectedSummary = useMemo(() => monthlySummary(finance, expenses, selectedMonth), [finance, expenses, selectedMonth]);
+  const cashFlowHistory = useMemo(() => [-3, -2, -1, 0].map((offset) => {
+    const month = shiftMonthKey(selectedMonth, offset);
+    const summary = monthlySummary(finance, expenses, month);
+    return { label: monthLabel(month), inc: summary.totalIncome, exp: summary.expensesTotal };
+  }), [finance, expenses, selectedMonth]);
+  const runwayMonths  = finance.bank.checking / (selectedSummary.expensesTotal || 1);
   const monthlyPassive = (initial * SWR) / 12;
 
   return (
@@ -1965,18 +1914,15 @@ export default function Wallet() {
         {tab === "dashboard" && (
           <div className="space-y-6">
             <MonthlyBalance
-              salaryNet={finance.salary.netInBank}
-              sideTotal={sideHustleTotal}
-              windfallsTotal={finance.windfalls.reduce((s, w) => s + w.amount, 0)}
-              expenses={expenses}
+              summary={selectedSummary}
               month={selectedMonth}
             />
             <FreedomHero portfolio={initial} monthlyContribution={contribution} />
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <Kpi icon={TrendingUp} label={T.netIncomeJune} value={fmt(netIncome)}
-                sub={<><Money>{fmt(totalIncome)}</Money> {T.inOf} · <Money>{fmt(totalExpenses)}</Money> {T.outOf}</>}
-                tone={netIncome >= 0 ? "pos" : "neg"} trend={+12.4} />
-              <Kpi icon={PiggyBank} label={T.savingsRate} value={pct(savingsRate, 0)} sub={T.savingsRateSub} tone="info" trend={+3.1} />
+              <Kpi icon={TrendingUp} label={T.netIncomeJune} value={fmt(selectedSummary.net)}
+                sub={<><Money>{fmt(selectedSummary.totalIncome)}</Money> {T.inOf} · <Money>{fmt(selectedSummary.expensesTotal)}</Money> {T.outOf}</>}
+                tone={selectedSummary.net >= 0 ? "pos" : "neg"} />
+              <Kpi icon={PiggyBank} label={T.savingsRate} value={pct(selectedSummary.totalIncome ? selectedSummary.net / selectedSummary.totalIncome : 0, 0)} sub={T.savingsRateSub} tone="info" />
               <Kpi icon={Shield} label={T.emergencyBuffer} value={`${runwayMonths.toFixed(1)} ${T.months}`}
                 sub={<><Money>{fmt(finance.bank.checking)}</Money> {T.liquidCash}</>} tone={runwayMonths >= 3 ? "pos" : "neg"} />
               <Kpi icon={Sparkles} label={T.passiveKpi} value={fmt(monthlyPassive)}
@@ -1995,15 +1941,19 @@ export default function Wallet() {
 
         {tab === "cashflow" && (
           <div className="space-y-6">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div className="text-sm text-slate-400">{T.viewingMonth}</div>
+              <MonthNav month={selectedMonth} onChange={setSelectedMonth} />
+            </div>
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
               <SalaryCard salary={finance.salary} onSave={setSalary} />
-              <SideHustleCard gigs={finance.sideHustle} onAdd={addGig} onUpdate={updateGig} onDelete={deleteGig} />
-              <WindfallsCard items={finance.windfalls} onAdd={addWindfall} onUpdate={updateWindfall} onDelete={deleteWindfall} onToggle={toggleWindfall} />
+              <SideHustleCard gigs={selectedSummary.gigs} onAdd={addGig} onUpdate={updateGig} onDelete={deleteGig} />
+              <WindfallsCard items={selectedSummary.windfalls} onAdd={addWindfall} onUpdate={updateWindfall} onDelete={deleteWindfall} onToggle={toggleWindfall} />
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
               <BankCard bank={finance.bank} onSave={setBank} />
               <div className="lg:col-span-2">
-                <CashFlowSummary salary={finance.salary} sideHustleTotal={sideHustleTotal} expenses={totalExpenses} />
+                <CashFlowSummary summary={selectedSummary} history={cashFlowHistory} month={selectedMonth} />
               </div>
             </div>
           </div>
@@ -2029,11 +1979,6 @@ export default function Wallet() {
               <ExpensePie expenses={expenses} month={selectedMonth} />
             </div>
           </div>
-        )}
-
-        {tab === "engine" && (
-          <PortfolioEngine initial={initial} contribution={contribution} returnRate={returnRate}
-            setInitial={setInitial} setContribution={setContribution} setReturnRate={setReturnRate} />
         )}
 
         <footer className="mt-10 mb-2 text-[11px] text-slate-600 text-center">{T.footer}</footer>
