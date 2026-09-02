@@ -1037,7 +1037,41 @@ const EditableTarget = ({ value, onSave }) => {
   );
 };
 
-const BudgetTable = ({ expenses, month, budgets, onEditTarget, className = "" }) => {
+const BudgetDescription = ({ value, onSave }) => {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value || "");
+  const inputRef = useRef(null);
+
+  useEffect(() => { setDraft(value || ""); }, [value]);
+  useEffect(() => { if (editing) inputRef.current?.focus(); }, [editing]);
+
+  const commit = () => {
+    const description = draft.trim();
+    setEditing(false);
+    if (description !== (value || "")) onSave(description);
+  };
+
+  if (editing) {
+    return (
+      <input ref={inputRef} value={draft} onClick={(event) => event.stopPropagation()}
+        onChange={(event) => setDraft(event.target.value)} onBlur={commit}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") { event.preventDefault(); commit(); }
+          if (event.key === "Escape") { setDraft(value || ""); setEditing(false); }
+        }}
+        placeholder={T.addNote}
+        className="w-full max-w-48 bg-slate-950/70 border border-teal-500/40 rounded px-2 py-1 text-[11px] text-slate-200 placeholder:text-slate-600 focus:outline-none" />
+    );
+  }
+  return (
+    <button type="button" onClick={(event) => { event.stopPropagation(); setEditing(true); }} title={T.edit}
+      className="min-w-0 text-start text-[11px] text-slate-500 hover:text-teal-300 truncate">
+      {value || T.addNote}
+    </button>
+  );
+};
+
+const BudgetTable = ({ expenses, month, budgets, onEditTarget, onUpdateExpense, className = "" }) => {
   const [expanded, setExpanded] = useState(null);
   const monthExpenses = useMemo(() => expenses.filter((e) => monthKey(e.date) === month), [expenses, month]);
   const rows = useMemo(() => buildBudgetRows(monthExpenses, budgets), [monthExpenses, budgets]);
@@ -1066,7 +1100,7 @@ const BudgetTable = ({ expenses, month, budgets, onEditTarget, className = "" })
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-800/80">
-            {rows.map((r) => {
+            {rows.filter((r) => !r.isRollup).map((r) => {
               const variance = r.target - r.actual;
               const over = variance < 0;
               const util = r.target ? Math.min(r.actual / r.target, 1.5) : 0;
@@ -1119,8 +1153,8 @@ const BudgetTable = ({ expenses, month, budgets, onEditTarget, className = "" })
                             <div key={e.id} className="flex items-center justify-between gap-3 text-[12px] py-1.5 border-b border-slate-900/80 last:border-0">
                               <div className="flex items-center gap-2 min-w-0 text-slate-300">
                                 <span className="text-slate-500 text-[11px] whitespace-nowrap"><Money>{fmtDate(e.date)}</Money></span>
-                                <span className="truncate">{e.merchant}</span>
-                                {e.note && <span className="text-slate-600 truncate">· {e.note}</span>}
+                                <span className="shrink-0 truncate">{e.merchant}</span>
+                                <BudgetDescription value={e.note} onSave={(note) => onUpdateExpense(e.id, { note })} />
                               </div>
                               <Money className="text-slate-200 font-medium shrink-0">{fmt(e.amount)}</Money>
                             </div>
@@ -1146,6 +1180,56 @@ const BudgetTable = ({ expenses, month, budgets, onEditTarget, className = "" })
           </tfoot>
         </table>
       </div>
+      {rows.filter((r) => r.isRollup).map((r) => {
+        const variance = r.target - r.actual;
+        const over = variance < 0;
+        const recurringItems = monthExpenses
+          .filter((expense) => isExpectedRecurring(expense))
+          .sort((a, b) => (a.date < b.date ? 1 : -1));
+        return (
+          <div key={r.id} className="mt-5 overflow-hidden rounded-xl border border-cyan-500/25">
+            <div className="flex items-center justify-between gap-3 bg-cyan-500/[0.06] px-4 py-3">
+              <div className="flex items-center gap-2 text-sm font-medium text-cyan-100">
+                <Repeat2 className="w-4 h-4 text-cyan-300" /> {catName(r)}
+              </div>
+              <Pill tone={over ? "neg" : "pos"}>{over ? T.deficit : T.surplus} <Money>{fmt(Math.abs(variance))}</Money></Pill>
+            </div>
+            <table className="w-full text-sm">
+              <thead className="bg-slate-900/60 text-[11px] tracking-wide text-slate-400">
+                <tr>
+                  <th className="text-start px-4 py-2.5">{T.colActual}</th>
+                  <th className="text-end px-4 py-2.5">{T.colTarget}</th>
+                  <th className="text-end px-4 py-2.5">{T.colVariance}</th>
+                  <th className="text-end px-4 py-2.5">{T.annualProjection}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-b border-slate-800/80">
+                  <td className="px-4 py-3"><Money className="text-slate-100 font-medium">{fmt(r.actual)}</Money></td>
+                  <td className="px-4 py-3 text-end"><EditableTarget value={r.target} onSave={(value) => onEditTarget(r.id, value)} /></td>
+                  <td className={`px-4 py-3 text-end font-medium ${over ? "text-rose-300" : "text-emerald-300"}`}><Money>{over ? "−" : "+"}{fmt(Math.abs(variance))}</Money></td>
+                  <td className="px-4 py-3 text-end text-slate-300"><Money>{fmt(r.actual * 12)}</Money></td>
+                </tr>
+                {recurringItems.map((expense) => (
+                  <tr key={expense.id} className="border-b border-slate-900/80 last:border-0">
+                    <td colSpan={3} className="px-4 py-2.5">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <span className="shrink-0 text-[11px] text-slate-500"><Money>{fmtDate(expense.date)}</Money></span>
+                        <span className="shrink-0 text-[12px] text-slate-300 truncate">{expense.merchant}</span>
+                        <BudgetDescription value={expense.note} onSave={(note) => onUpdateExpense(expense.id, { note })} />
+                      </div>
+                    </td>
+                    <td className="px-4 py-2.5 text-end"><Money className="text-slate-200 font-medium">{fmt(expense.amount)}</Money></td>
+                  </tr>
+                ))}
+                {recurringItems.length === 0 && (
+                  <tr><td colSpan={4} className="px-4 py-5 text-center text-xs text-slate-500">{T.noCategoryItems}</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        );
+      })}
     </Card>
   );
 };
@@ -1933,7 +2017,7 @@ export default function Wallet() {
               <MonthNav month={selectedMonth} onChange={setSelectedMonth} />
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              <BudgetTable expenses={expenses} month={selectedMonth} budgets={budgets} onEditTarget={setBudget} />
+              <BudgetTable expenses={expenses} month={selectedMonth} budgets={budgets} onEditTarget={setBudget} onUpdateExpense={updateExpense} />
               <ExpensePie expenses={expenses} month={selectedMonth} />
             </div>
           </div>
@@ -1975,7 +2059,7 @@ export default function Wallet() {
               <MonthNav month={selectedMonth} onChange={setSelectedMonth} />
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              <BudgetTable expenses={expenses} month={selectedMonth} budgets={budgets} onEditTarget={setBudget} />
+              <BudgetTable expenses={expenses} month={selectedMonth} budgets={budgets} onEditTarget={setBudget} onUpdateExpense={updateExpense} />
               <ExpensePie expenses={expenses} month={selectedMonth} />
             </div>
           </div>
