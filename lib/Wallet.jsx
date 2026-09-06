@@ -228,7 +228,7 @@ const CATEGORIES = [
   { id: "financial", names: { he: "פיננסי ואחר",       en: "Financial & Other" },     icon: Receipt,      color: "#fbbf24", target: 400 },
 ];
 const BUDGET_CATEGORIES = [
-  { id: "monthly", names: { he: "הוצאות חודשיות", en: "Monthly Expenses" }, icon: Repeat2, color: "#60a5fa", target: 3000, isRollup: true },
+  { id: "monthly", names: { he: "הוצאות קבועות", en: "Monthly Expenses" }, icon: Repeat2, color: "#60a5fa", target: 3000, isRollup: true },
   ...CATEGORIES,
 ];
 const CAT_BY_ID = Object.fromEntries(CATEGORIES.map((c) => [c.id, c]));
